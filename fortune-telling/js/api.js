@@ -106,17 +106,25 @@ class ApiModule {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = ''; // 缓冲区处理不完整的数据
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
+                // 将新数据追加到缓冲区
+                buffer += decoder.decode(value, { stream: true });
+                
+                // 按换行符分割，保留最后一个可能不完整的部分
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
 
                 for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6).trim();
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) continue;
+                    
+                    if (trimmedLine.startsWith('data: ')) {
+                        const data = trimmedLine.slice(6);
                         if (data === '[DONE]') continue;
                         
                         try {
@@ -129,9 +137,23 @@ class ApiModule {
                                 throw new Error(parsed.error);
                             }
                         } catch (e) {
-                            // 忽略 JSON 解析错误
+                            // JSON 解析失败，可能是不完整的数据，忽略
                         }
                     }
+                }
+            }
+            
+            // 处理缓冲区中剩余的数据
+            if (buffer.trim().startsWith('data: ')) {
+                const data = buffer.trim().slice(6);
+                if (data !== '[DONE]') {
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.content) {
+                            fullContent += parsed.content;
+                            onChunk(parsed.content, fullContent);
+                        }
+                    } catch (e) {}
                 }
             }
 
