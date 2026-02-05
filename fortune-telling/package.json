@@ -1,0 +1,13 @@
+{
+  "name": "fortune-telling",
+  "version": "1.0.0",
+  "description": "周易六爻铜钱占卜",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "start": "node server/index.js"
+  },
+  "keywords": ["周易", "六爻", "占卜", "算命"],
+  "author": "",
+  "license": "MIT"
+}

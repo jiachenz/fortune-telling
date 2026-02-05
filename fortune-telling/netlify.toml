@@ -1,0 +1,26 @@
+# Netlify 配置文件
+
+[build]
+  # 发布目录（前端静态文件）
+  publish = "."
+  # Functions 目录
+  functions = "netlify/functions"
+
+[functions]
+  # 使用 esbuild 打包
+  node_bundler = "esbuild"
+
+# 指定 Node.js 18（内置 fetch API）
+[build.environment]
+  NODE_VERSION = "18"
+
+# 重定向规则 - 将 /api/* 请求转发到 Functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# 环境变量提示（实际值在 Netlify 控制台设置）
+# API_KEY = "你的API密钥"
+# API_BASE = "https://api.siliconflow.cn/v1"
+# MODEL_NAME = "Pro/zai-org/GLM-4.7"
