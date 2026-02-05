@@ -124,18 +124,26 @@ ${yaoDetails}
         (async () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = ''; // 缓冲区处理不完整的数据
 
             try {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
+                    // 将新数据追加到缓冲区
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // 按换行符分割，保留最后一个可能不完整的部分
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // 最后一部分可能不完整，留到下次处理
 
                     for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) continue;
+                        
+                        if (trimmedLine.startsWith('data: ')) {
+                            const data = trimmedLine.slice(6);
                             if (data === '[DONE]') {
                                 await writer.write(encoder.encode('data: [DONE]\n\n'));
                                 continue;
@@ -148,11 +156,27 @@ ${yaoDetails}
                                     await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                                 }
                             } catch (e) {
-                                // 忽略解析错误
+                                // JSON 解析失败，可能是不完整的数据，忽略
                             }
                         }
                     }
                 }
+                
+                // 处理缓冲区中剩余的数据
+                if (buffer.trim().startsWith('data: ')) {
+                    const data = buffer.trim().slice(6);
+                    if (data !== '[DONE]') {
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices?.[0]?.delta?.content;
+                            if (content) {
+                                await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                            }
+                        } catch (e) {}
+                    }
+                }
+                
+                await writer.write(encoder.encode('data: [DONE]\n\n'));
             } catch (error) {
                 console.error('流处理错误:', error);
                 await writer.write(encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`));
