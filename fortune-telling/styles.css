@@ -1,0 +1,1020 @@
+/* ========================================
+   周易六爻占卜 - 中国风样式
+   ======================================== */
+
+:root {
+    /* 主色调 - 朱红与墨色 */
+    --primary-red: #c41e3a;
+    --primary-red-dark: #8b0000;
+    --primary-red-light: #e74c3c;
+    --gold: #d4af37;
+    --gold-light: #f4d03f;
+    --ink-black: #1a1a2e;
+    --ink-dark: #0f0f1a;
+    --paper-cream: #f5f0e1;
+    --paper-light: #faf8f0;
+    --jade-green: #00a86b;
+    
+    /* 文字颜色 */
+    --text-primary: #2c2c2c;
+    --text-secondary: #5a5a5a;
+    --text-light: #f5f0e1;
+    
+    /* 阴影 */
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.15);
+    --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.2);
+    --shadow-strong: 0 12px 48px rgba(0, 0, 0, 0.3);
+    
+    /* 过渡 */
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.4s ease;
+    --transition-slow: 0.6s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Serif SC', serif;
+    background: var(--ink-dark);
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--text-primary);
+}
+
+/* ========================================
+   背景与装饰
+   ======================================== */
+
+.app-container {
+    position: relative;
+    min-height: 100vh;
+    background: 
+        radial-gradient(ellipse at top, rgba(196, 30, 58, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+        linear-gradient(180deg, var(--ink-dark) 0%, #16213e 50%, var(--ink-dark) 100%);
+}
+
+.bg-pattern {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 50px,
+            rgba(212, 175, 55, 0.02) 50px,
+            rgba(212, 175, 55, 0.02) 100px
+        );
+    pointer-events: none;
+    z-index: 0;
+}
+
+.floating-clouds {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(ellipse 600px 200px at 10% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse 400px 150px at 90% 80%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+        radial-gradient(ellipse 500px 180px at 50% 50%, rgba(212, 175, 55, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: cloudFloat 30s ease-in-out infinite;
+}
+
+@keyframes cloudFloat {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(20px); }
+}
+
+/* ========================================
+   页面通用样式
+   ======================================== */
+
+.page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(30px);
+    transition: all var(--transition-slow);
+    z-index: 1;
+}
+
+.page.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.content-wrapper {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+}
+
+/* ========================================
+   欢迎页面
+   ======================================== */
+
+.title-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.bagua-symbol {
+    font-size: 80px;
+    color: var(--gold);
+    text-shadow: 
+        0 0 30px rgba(212, 175, 55, 0.5),
+        0 0 60px rgba(212, 175, 55, 0.3);
+    animation: symbolPulse 3s ease-in-out infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes symbolPulse {
+    0%, 100% { 
+        transform: scale(1) rotate(0deg);
+        filter: brightness(1);
+    }
+    50% { 
+        transform: scale(1.05) rotate(180deg);
+        filter: brightness(1.2);
+    }
+}
+
+.main-title {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 56px;
+    color: var(--paper-cream);
+    letter-spacing: 12px;
+    text-shadow: 
+        2px 2px 4px rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(212, 175, 55, 0.3);
+    margin-bottom: 12px;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 8px;
+    opacity: 0.9;
+}
+
+/* ========================================
+   问题输入区域
+   ======================================== */
+
+.question-section {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(245, 240, 225, 0.95) 0%, rgba(250, 248, 240, 0.95) 100%);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.question-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-red), var(--gold), var(--primary-red));
+}
+
+.question-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 20px;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.label-icon {
+    color: var(--primary-red);
+    font-size: 14px;
+}
+
+.question-input {
+    width: 100%;
+    padding: 20px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 16px;
+    line-height: 1.8;
+    border: 2px solid rgba(196, 30, 58, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--text-primary);
+    resize: none;
+    transition: all var(--transition-fast);
+}
+
+.question-input:focus {
+    outline: none;
+    border-color: var(--primary-red);
+    box-shadow: 0 0 0 4px rgba(196, 30, 58, 0.1);
+}
+
+.question-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.hint-text {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 16px;
+    font-style: italic;
+}
+
+/* ========================================
+   按钮样式
+   ======================================== */
+
+.primary-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px 48px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--paper-cream);
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--primary-red-dark) 100%);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: 
+        0 4px 15px rgba(196, 30, 58, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.primary-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 25px rgba(196, 30, 58, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.primary-btn:hover::before {
+    left: 100%;
+}
+
+.primary-btn:active {
+    transform: translateY(0);
+}
+
+.primary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.secondary-btn {
+    padding: 14px 36px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 16px;
+    color: var(--gold);
+    background: transparent;
+    border: 2px solid var(--gold);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.secondary-btn:hover {
+    background: rgba(212, 175, 55, 0.1);
+    transform: translateY(-2px);
+}
+
+/* 结果页按钮组 */
+.result-buttons {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.result-buttons .primary-btn {
+    padding: 14px 28px;
+    font-size: 16px;
+}
+
+.result-buttons .secondary-btn {
+    padding: 14px 28px;
+}
+
+.btn-icon {
+    font-size: 20px;
+    transition: transform var(--transition-fast);
+}
+
+.primary-btn:hover .btn-icon {
+    transform: translateX(4px);
+}
+
+/* ========================================
+   铜钱页面
+   ======================================== */
+
+.page-header {
+    text-align: center;
+}
+
+.page-title {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 42px;
+    color: var(--paper-cream);
+    letter-spacing: 8px;
+    margin-bottom: 8px;
+}
+
+.page-subtitle {
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 4px;
+}
+
+/* 铜钱容器 */
+.coins-container {
+    display: flex;
+    gap: 24px;
+    margin: 20px 0;
+}
+
+.coin {
+    width: 120px;
+    height: 120px;
+    perspective: 1000px;
+    cursor: pointer;
+}
+
+.coin-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease;
+}
+
+.coin.flipping .coin-inner {
+    animation: coinFlip 1s ease-out forwards;
+}
+
+@keyframes coinFlip {
+    0% { 
+        transform: rotateY(0deg) translateY(0) rotateX(0deg); 
+    }
+    20% { 
+        transform: rotateY(720deg) translateY(-100px) rotateX(15deg); 
+    }
+    40% { 
+        transform: rotateY(1440deg) translateY(-60px) rotateX(-10deg); 
+    }
+    60% { 
+        transform: rotateY(2160deg) translateY(-30px) rotateX(5deg); 
+    }
+    80% { 
+        transform: rotateY(2880deg) translateY(-10px) rotateX(-2deg); 
+    }
+    100% { 
+        transform: rotateY(var(--final-rotation)) translateY(0) rotateX(0deg); 
+    }
+}
+
+.coin-front,
+.coin-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.4),
+        0 8px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.coin-front img,
+.coin-back img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.coin-front {
+    background: transparent;
+}
+
+.coin-back {
+    transform: rotateY(180deg);
+    background: transparent;
+}
+
+/* 铜钱悬停效果 */
+.coin:hover .coin-inner {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
+.coin:hover .coin-front img,
+.coin:hover .coin-back img {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4)) brightness(1.1);
+}
+
+/* 显示结果状态 */
+.coin.show-front .coin-inner {
+    transform: rotateY(0deg);
+}
+
+.coin.show-back .coin-inner {
+    transform: rotateY(180deg);
+}
+
+/* 铜钱落地弹跳效果 */
+.coin.landed .coin-inner {
+    animation: coinBounce 0.3s ease-out;
+}
+
+@keyframes coinBounce {
+    0% { transform: translateY(-5px); }
+    50% { transform: translateY(2px); }
+    100% { transform: translateY(0); }
+}
+
+/* 投掷结果显示 */
+.throw-result {
+    background: rgba(245, 240, 225, 0.1);
+    padding: 16px 32px;
+    border-radius: 12px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    min-width: 280px;
+    text-align: center;
+}
+
+.result-text {
+    font-size: 18px;
+    color: var(--paper-cream);
+    letter-spacing: 2px;
+}
+
+.result-text.yang {
+    color: var(--gold);
+}
+
+.result-text.yin {
+    color: #a0c4ff;
+}
+
+/* 掷铜钱按钮 */
+.throw-btn {
+    padding: 20px 60px;
+    font-size: 20px;
+}
+
+/* 爻进度显示 */
+.yao-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.yao-line {
+    width: 120px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    position: relative;
+    transition: all var(--transition-medium);
+}
+
+.yao-line.yang {
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.yao-line.yin {
+    background: transparent;
+}
+
+.yao-line.yin::before,
+.yao-line.yin::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 45%;
+    background: linear-gradient(90deg, #a0c4ff, #c8deff, #a0c4ff);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(160, 196, 255, 0.5);
+}
+
+.yao-line.yin::before {
+    left: 0;
+}
+
+.yao-line.yin::after {
+    right: 0;
+}
+
+.yao-line.yang-moving {
+    background: linear-gradient(90deg, var(--primary-red), var(--primary-red-light), var(--primary-red));
+    box-shadow: 0 0 15px rgba(196, 30, 58, 0.6);
+    animation: yaoGlow 1s ease-in-out infinite;
+}
+
+.yao-line.yin-moving {
+    background: transparent;
+}
+
+.yao-line.yin-moving::before,
+.yao-line.yin-moving::after {
+    background: linear-gradient(90deg, var(--jade-green), #40d989, var(--jade-green));
+    box-shadow: 0 0 15px rgba(0, 168, 107, 0.6);
+    animation: yaoGlow 1s ease-in-out infinite;
+}
+
+@keyframes yaoGlow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+.yao-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 120px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: -8px;
+}
+
+/* ========================================
+   结果页面
+   ======================================== */
+
+.hexagram-display {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    padding: 32px;
+    background: rgba(245, 240, 225, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.hexagram-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hexagram-visual .yao-line {
+    width: 80px;
+    height: 10px;
+}
+
+.hexagram-info {
+    text-align: left;
+}
+
+.hexagram-name {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 36px;
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+
+.hexagram-nature {
+    font-size: 16px;
+    color: var(--paper-cream);
+    opacity: 0.8;
+}
+
+/* 解读区域 */
+.interpretation-section {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(245, 240, 225, 0.95) 0%, rgba(250, 248, 240, 0.95) 100%);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: var(--shadow-medium);
+}
+
+.user-question-display {
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(196, 30, 58, 0.2);
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.user-question-display .label {
+    color: var(--primary-red);
+    font-weight: 600;
+}
+
+.ai-response {
+    font-size: 16px;
+    line-height: 1.8;
+    color: var(--text-primary);
+    min-height: 150px;
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+/* 自定义滚动条 */
+.ai-response::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-response::-webkit-scrollbar-track {
+    background: rgba(196, 30, 58, 0.1);
+    border-radius: 3px;
+}
+
+.ai-response::-webkit-scrollbar-thumb {
+    background: var(--primary-red);
+    border-radius: 3px;
+}
+
+.ai-response::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-red-dark);
+}
+
+.ai-response p {
+    margin-bottom: 16px;
+}
+
+/* 加载动画 */
+.loading-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(196, 30, 58, 0.2);
+    border-top-color: var(--primary-red);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   模态框
+   ======================================== */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-fast);
+}
+
+.modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: var(--paper-cream);
+    padding: 40px;
+    border-radius: 16px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: var(--shadow-strong);
+}
+
+.modal-content h3 {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 28px;
+    color: var(--primary-red);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.modal-hint {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 16px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    border: 2px solid rgba(196, 30, 58, 0.2);
+    border-radius: 8px;
+    background: white;
+    transition: all var(--transition-fast);
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary-red);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.modal-buttons .primary-btn,
+.modal-buttons .secondary-btn {
+    flex: 1;
+    padding: 12px 20px;
+    font-size: 14px;
+}
+
+.modal-buttons .secondary-btn {
+    color: var(--text-secondary);
+    border-color: var(--text-secondary);
+}
+
+/* ========================================
+   响应式设计
+   ======================================== */
+
+@media (max-width: 640px) {
+    .main-title {
+        font-size: 42px;
+        letter-spacing: 8px;
+    }
+    
+    .bagua-symbol {
+        font-size: 60px;
+    }
+    
+    .question-section {
+        padding: 24px;
+    }
+    
+    .coins-container {
+        gap: 16px;
+    }
+    
+    .coin {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .coin-front::after,
+    .coin-back::after {
+        font-size: 24px;
+    }
+    
+    .hexagram-display {
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .hexagram-info {
+        text-align: center;
+    }
+    
+    .modal-content {
+        padding: 24px;
+    }
+}
+
+/* ========================================
+   打字机效果
+   ======================================== */
+
+/* ========================================
+   Markdown 渲染样式
+   ======================================== */
+
+.markdown-content {
+    line-height: 1.8;
+}
+
+.md-paragraph {
+    margin-bottom: 16px;
+}
+
+.md-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+/* 淡入动画 */
+.fade-in {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Markdown 标题样式 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+    font-family: 'Ma Shan Zheng', cursive;
+    color: var(--primary-red);
+    margin: 20px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(196, 30, 58, 0.2);
+}
+
+.markdown-content h1 { font-size: 28px; }
+.markdown-content h2 { font-size: 24px; }
+.markdown-content h3 { font-size: 20px; border-bottom: none; }
+.markdown-content h4 { font-size: 18px; border-bottom: none; }
+
+/* 段落样式 */
+.markdown-content p {
+    margin: 12px 0;
+    text-align: justify;
+}
+
+/* 列表样式 */
+.markdown-content ul,
+.markdown-content ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.markdown-content li {
+    margin: 8px 0;
+    position: relative;
+}
+
+.markdown-content ul li::marker {
+    color: var(--primary-red);
+}
+
+.markdown-content ol li::marker {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+/* 强调样式 */
+.markdown-content strong {
+    color: var(--primary-red);
+    font-weight: 700;
+}
+
+.markdown-content em {
+    color: var(--jade-green);
+    font-style: normal;
+    padding: 0 4px;
+    background: rgba(0, 168, 107, 0.1);
+    border-radius: 4px;
+}
+
+/* 引用块样式 */
+.markdown-content blockquote {
+    margin: 16px 0;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(196, 30, 58, 0.05) 100%);
+    border-left: 4px solid var(--gold);
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+}
+
+.markdown-content blockquote p {
+    margin: 0;
+}
+
+/* 代码样式 */
+.markdown-content code {
+    background: rgba(196, 30, 58, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 14px;
+    color: var(--primary-red-dark);
+}
+
+/* 分隔线 */
+.markdown-content hr {
+    border: none;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 24px 0;
+}
+
+/* 链接样式 */
+.markdown-content a {
+    color: var(--primary-red);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--primary-red);
+    transition: all var(--transition-fast);
+}
+
+.markdown-content a:hover {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+
+/* 旧版打字机效果（保留兼容） */
+.typewriter {
+    overflow: hidden;
+}
+
+.typewriter-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--primary-red);
+    margin-left: 2px;
+    animation: blink 0.8s infinite;
+    vertical-align: text-bottom;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}

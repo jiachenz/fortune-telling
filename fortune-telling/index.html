@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>周易六爻 · 铜钱占卜</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Markdown 渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- PDF 导出库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 背景装饰 -->
+        <div class="bg-pattern"></div>
+        <div class="floating-clouds"></div>
+        
+        <!-- 页面1: 欢迎页面 -->
+        <section id="welcome-page" class="page active">
+            <div class="content-wrapper">
+                <div class="title-container">
+                    <div class="bagua-symbol">☯</div>
+                    <h1 class="main-title">周易六爻</h1>
+                    <p class="subtitle">铜钱占卜 · 问道天机</p>
+                </div>
+                
+                <div class="question-section">
+                    <label for="user-question" class="question-label">
+                        <span class="label-icon">✦</span>
+                        今日所求何事？
+                        <span class="label-icon">✦</span>
+                    </label>
+                    <textarea 
+                        id="user-question" 
+                        class="question-input"
+                        placeholder="请在此写下您心中所惑&#10;例如：近期事业发展如何？&#10;例如：这段感情是否值得继续？"
+                        rows="4"
+                    ></textarea>
+                    <p class="hint-text">心诚则灵，请静心片刻，专注于您的问题</p>
+                </div>
+                
+                <button id="start-btn" class="primary-btn">
+                    <span class="btn-text">开始占卜</span>
+                    <span class="btn-icon">→</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 页面2: 抛铜钱页面 -->
+        <section id="coin-page" class="page">
+            <div class="content-wrapper">
+                <div class="page-header">
+                    <h2 class="page-title">掷铜钱</h2>
+                    <p class="page-subtitle">第 <span id="current-throw">1</span> 爻 / 共六爻</p>
+                </div>
+
+                <div class="coins-container">
+                    <div class="coin" id="coin-1">
+                        <div class="coin-inner">
+                            <div class="coin-front">
+                                <img src="assets/coins/coin-front.svg" alt="正面">
+                            </div>
+                            <div class="coin-back">
+                                <img src="assets/coins/coin-back.svg" alt="反面">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="coin" id="coin-2">
+                        <div class="coin-inner">
+                            <div class="coin-front">
+                                <img src="assets/coins/coin-front.svg" alt="正面">
+                            </div>
+                            <div class="coin-back">
+                                <img src="assets/coins/coin-back.svg" alt="反面">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="coin" id="coin-3">
+                        <div class="coin-inner">
+                            <div class="coin-front">
+                                <img src="assets/coins/coin-front.svg" alt="正面">
+                            </div>
+                            <div class="coin-back">
+                                <img src="assets/coins/coin-back.svg" alt="反面">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="throw-result" id="throw-result">
+                    <span class="result-text">点击下方按钮掷出铜钱</span>
+                </div>
+
+                <button id="throw-btn" class="primary-btn throw-btn">
+                    <span class="btn-text">掷铜钱</span>
+                </button>
+
+                <!-- 已完成的爻显示 -->
+                <div class="yao-progress">
+                    <div class="yao-line" id="yao-6"></div>
+                    <div class="yao-line" id="yao-5"></div>
+                    <div class="yao-line" id="yao-4"></div>
+                    <div class="yao-line" id="yao-3"></div>
+                    <div class="yao-line" id="yao-2"></div>
+                    <div class="yao-line" id="yao-1"></div>
+                </div>
+                
+                <div class="yao-labels">
+                    <span>上爻</span>
+                    <span>初爻</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 页面3: 结果页面 -->
+        <section id="result-page" class="page">
+            <div class="content-wrapper">
+                <div class="page-header">
+                    <h2 class="page-title">卦象解读</h2>
+                </div>
+
+                <div class="hexagram-display">
+                    <div class="hexagram-visual" id="hexagram-visual">
+                        <!-- 六爻将在这里显示 -->
+                    </div>
+                    <div class="hexagram-info">
+                        <h3 class="hexagram-name" id="hexagram-name">正在解卦...</h3>
+                        <p class="hexagram-nature" id="hexagram-nature"></p>
+                    </div>
+                </div>
+
+                <div class="interpretation-section">
+                    <div class="user-question-display">
+                        <span class="label">所问之事：</span>
+                        <span id="display-question"></span>
+                    </div>
+                    
+                    <div class="ai-response" id="ai-response">
+                        <div class="loading-indicator">
+                            <div class="loading-spinner"></div>
+                            <span>天机推演中...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-buttons">
+                    <button id="export-pdf-btn" class="primary-btn">
+                        <span class="btn-text">📄 导出PDF</span>
+                    </button>
+                    <button id="restart-btn" class="secondary-btn">
+                        <span class="btn-text">再占一卦</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- API配置弹窗 -->
+        <div id="api-modal" class="modal">
+            <div class="modal-content">
+                <h3>配置AI接口</h3>
+                <p class="modal-hint">请输入您的OpenAI API密钥以启用AI解卦功能</p>
+                
+                <div class="input-group">
+                    <label for="api-key">API Key</label>
+                    <input type="password" id="api-key" placeholder="sk-...">
+                </div>
+                
+                <div class="input-group">
+                    <label for="api-base">API Base URL (可选)</label>
+                    <input type="text" id="api-base" placeholder="https://api.siliconflow.cn/v1" value="https://api.siliconflow.cn/v1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="model-name">模型名称</label>
+                    <input type="text" id="model-name" placeholder="Pro/zai-org/GLM-4.7" value="Pro/zai-org/GLM-4.7">
+                </div>
+                
+                <div class="modal-buttons">
+                    <button id="save-api-btn" class="primary-btn small">保存配置</button>
+                    <button id="skip-api-btn" class="secondary-btn small">使用本地解读</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模块化 JS -->
+    <script src="js/coin.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/pdf-export.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
