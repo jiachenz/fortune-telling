@@ -46,8 +46,8 @@ export default async (request, context) => {
 
     // API 配置（使用 process.env）
     const API_KEY = process.env.API_KEY;
-    const API_BASE = process.env.API_BASE || 'https://api.siliconflow.cn/v1';
-    const MODEL_NAME = process.env.MODEL_NAME || 'Pro/zai-org/GLM-4.7';
+    const API_BASE = process.env.API_BASE || 'https://openrouter.ai/api/v1';
+    const MODEL_NAME = process.env.MODEL_NAME || 'stepfun/step-3.5-flash:free';
 
     if (!API_KEY) {
         return new Response(JSON.stringify({ error: 'API Key 未配置' }), {
@@ -101,7 +101,7 @@ ${yaoDetails}
                     }
                 ],
                 temperature: 0.7,
-                max_tokens: 800,
+                max_tokens: 100000,
                 stream: true  // 启用流式响应
             })
         });

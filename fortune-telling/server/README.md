@@ -1,56 +1,82 @@
 # 周易六爻占卜 - 后端服务
 
-## 快速开始
+## 项目目录结构说明
+
+本项目的 `.env` 文件统一放在仓库根目录的 `server/` 下，与前端代码分离：
+
+```
+fortune-telling/          ← Git 仓库根目录
+├── server/
+│   └── .env              ← 环境变量（API Key 等），此处配置，不提交 Git
+└── fortune-telling/      ← 前端 + 后端代码
+    ├── server/
+    │   ├── index.js      # 后端服务主文件（读取上级 ../server/.env）
+    │   ├── package.json
+    │   └── README.md
+    ├── js/
+    │   ├── coin.js       # 铜钱动画模块
+    │   ├── api.js        # API 通信模块
+    │   ├── renderer.js   # 渲染模块
+    │   └── png-export.js # 截图导出模块（保存长图 PNG）
+    ├── netlify/
+    │   └── functions/    # Netlify 部署用的 Serverless 函数
+    ├── assets/
+    │   └── coins/        # 铜钱 SVG 素材
+    ├── index.html        # 前端页面
+    ├── styles.css        # 样式文件
+    └── script.js         # 前端主程序
+```
+
+## 快速开始（本地开发）
 
 ### 1. 安装依赖
 
 ```bash
-cd server
+cd fortune-telling/server
 npm install
 ```
 
 ### 2. 配置环境变量
 
-编辑 `.env` 文件，配置你的 API Key：
+编辑仓库根目录下的 `server/.env`（不是 `fortune-telling/server/.env`）：
 
 ```env
 # API 配置
-API_KEY=你的API密钥
-API_BASE=https://api.siliconflow.cn/v1
-MODEL_NAME=Pro/zai-org/GLM-4.7
+API_KEY=你的OpenRouter密钥（格式：sk-or-v1-...）
+API_BASE=https://openrouter.ai/api/v1
+MODEL_NAME=stepfun/step-3.5-flash:free
 
 # 服务器配置
 PORT=3000
 ```
 
+> OpenRouter API Key 获取地址：https://openrouter.ai/keys
+
 ### 3. 启动服务
 
+**方式一：PowerShell（推荐 Windows）**
+
+```powershell
+cd fortune-telling/server
+# 加载上级 .env 并启动
+Get-Content "../../server/.env" | ForEach-Object {
+    if ($_ -notmatch '^\s*#' -and $_ -notmatch '^\s*$') {
+        $parts = $_ -split '=', 2
+        [System.Environment]::SetEnvironmentVariable($parts[0], $parts[1], 'Process')
+    }
+}
+npm start
+```
+
+**方式二：Git Bash / Linux / macOS**
+
 ```bash
+cd fortune-telling/server
+export $(grep -v '^#' ../../server/.env | xargs)
 npm start
 ```
 
 服务启动后，访问 http://localhost:3000 即可使用。
-
-## 项目结构
-
-```
-fortune-telling/
-├── server/
-│   ├── index.js      # 后端服务主文件
-│   ├── package.json  # 依赖配置
-│   ├── .env          # 环境变量（API Key 等）
-│   └── README.md     # 说明文档
-├── js/
-│   ├── coin.js       # 铜钱动画模块
-│   ├── api.js        # API 通信模块
-│   ├── renderer.js   # 渲染模块
-│   └── pdf-export.js # PDF 导出模块
-├── assets/
-│   └── coins/        # 铜钱素材
-├── index.html        # 前端页面
-├── styles.css        # 样式文件
-└── script.js         # 前端主程序
-```
 
 ## API 接口
 

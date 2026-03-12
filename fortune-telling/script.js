@@ -22,7 +22,7 @@ const state = {
 let coinModule = null;
 let apiModule = null;
 let rendererModule = null;
-let pdfExportModule = null;
+let pngExportModule = null;
 
 // ========================================
 // DOM 元素
@@ -52,7 +52,7 @@ const elements = {
     displayQuestion: null,
     aiResponse: null,
     restartBtn: null,
-    exportPdfBtn: null,
+    exportPngBtn: null,
     
     // 模态框
     apiModal: null,
@@ -98,7 +98,7 @@ function initElements() {
     elements.displayQuestion = document.getElementById('display-question');
     elements.aiResponse = document.getElementById('ai-response');
     elements.restartBtn = document.getElementById('restart-btn');
-    elements.exportPdfBtn = document.getElementById('export-pdf-btn');
+    elements.exportPngBtn = document.getElementById('export-png-btn');
     
     elements.apiModal = document.getElementById('api-modal');
     elements.apiKey = document.getElementById('api-key');
@@ -138,8 +138,8 @@ function initModules() {
         displayQuestion: elements.displayQuestion
     });
     
-    // 初始化 PDF 导出模块
-    pdfExportModule = new PdfExportModule();
+    // 初始化截图导出模块
+    pngExportModule = new PngExportModule();
 }
 
 // ========================================
@@ -309,21 +309,21 @@ function handleRestartClick() {
     showPage('welcome');
 }
 
-// 导出 PDF
-async function handleExportPdf() {
+// 导出长图
+async function handleExportPng() {
     if (!state.currentHexagramData || !state.currentInterpretation) {
         alert('暂无可导出的内容');
         return;
     }
     
     // 更新按钮状态
-    const btn = elements.exportPdfBtn;
+    const btn = elements.exportPngBtn;
     const originalText = btn.querySelector('.btn-text').textContent;
     btn.querySelector('.btn-text').textContent = '导出中...';
     btn.disabled = true;
     
     try {
-        await pdfExportModule.exportToPdf(
+        await pngExportModule.exportToPng(
             state.currentHexagramData,
             state.userQuestion,
             state.currentInterpretation
@@ -356,7 +356,7 @@ function bindEvents() {
     elements.restartBtn.addEventListener('click', handleRestartClick);
     
     // 导出 PDF
-    elements.exportPdfBtn.addEventListener('click', handleExportPdf);
+    elements.exportPngBtn.addEventListener('click', handleExportPng);
 }
 
 // ========================================

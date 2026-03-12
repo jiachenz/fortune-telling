@@ -7,8 +7,8 @@ class ApiModule {
     constructor() {
         this.config = {
             apiKey: '',
-            apiBase: 'https://api.siliconflow.cn/v1',
-            model: 'Pro/zai-org/GLM-4.7'
+            apiBase: 'https://openrouter.ai/api/v1',
+            model: 'stepfun/step-3.5-flash:free'
         };
         this.useProxy = true;
         this.proxyBase = '/api';
@@ -55,8 +55,8 @@ class ApiModule {
     saveConfig(config) {
         this.config = {
             apiKey: config.apiKey || this.config.apiKey,
-            apiBase: config.apiBase || 'https://api.siliconflow.cn/v1',
-            model: config.model || 'Pro/zai-org/GLM-4.7'
+            apiBase: config.apiBase || 'https://openrouter.ai/api/v1',
+            model: config.model || 'stepfun/step-3.5-flash:free'
         };
         localStorage.setItem('fortune_api_config', JSON.stringify(this.config));
     }
@@ -89,7 +89,7 @@ class ApiModule {
         
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120秒超时
 
             const response = await fetch(`${this.proxyBase}/interpret-stream`, {
                 method: 'POST',
@@ -236,7 +236,7 @@ class ApiModule {
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.7,
-                    max_tokens: 800
+                    max_tokens: 8000
                 })
             });
 
