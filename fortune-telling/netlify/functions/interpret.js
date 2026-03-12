@@ -44,8 +44,8 @@ exports.handler = async (event, context) => {
     }
 
     const API_KEY = process.env.API_KEY;
-    const API_BASE = process.env.API_BASE || 'https://api.siliconflow.cn/v1';
-    const MODEL_NAME = process.env.MODEL_NAME || 'Pro/zai-org/GLM-4.7';
+    const API_BASE = process.env.API_BASE || 'https://openrouter.ai/api/v1';
+    const MODEL_NAME = process.env.MODEL_NAME || 'stepfun/step-3.5-flash:free';
 
     if (!API_KEY) {
         return {
@@ -88,7 +88,7 @@ ${yaoDetails}
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.7,
-                max_tokens: 800
+                max_tokens: 8000
             })
         });
 

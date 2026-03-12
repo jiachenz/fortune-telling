@@ -580,9 +580,23 @@ body {
 
 .yao-line.yin-moving::before,
 .yao-line.yin-moving::after {
-    background: linear-gradient(90deg, var(--jade-green), #40d989, var(--jade-green));
-    box-shadow: 0 0 15px rgba(0, 168, 107, 0.6);
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 45%;
+    background: linear-gradient(90deg, #e67e22, #f39c12, #e67e22);
+    border-radius: 2px;
+    box-shadow: 0 0 15px rgba(230, 126, 34, 0.7);
     animation: yaoGlow 1s ease-in-out infinite;
+}
+
+.yao-line.yin-moving::before {
+    left: 0;
+}
+
+.yao-line.yin-moving::after {
+    right: 0;
 }
 
 @keyframes yaoGlow {

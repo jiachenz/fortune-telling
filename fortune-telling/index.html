@@ -8,8 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Markdown 渲染库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- PDF 导出库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- 截图库（本地）-->
+    <script src="assets/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -146,8 +146,8 @@
                 </div>
 
                 <div class="result-buttons">
-                    <button id="export-pdf-btn" class="primary-btn">
-                        <span class="btn-text">📄 导出PDF</span>
+                    <button id="export-png-btn" class="primary-btn">
+                        <span class="btn-text">🖼️ 保存长图</span>
                     </button>
                     <button id="restart-btn" class="secondary-btn">
                         <span class="btn-text">再占一卦</span>
@@ -189,7 +189,7 @@
     <script src="js/coin.js"></script>
     <script src="js/api.js"></script>
     <script src="js/renderer.js"></script>
-    <script src="js/pdf-export.js"></script>
+    <script src="js/png-export.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
