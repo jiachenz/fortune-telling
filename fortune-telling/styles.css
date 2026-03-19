@@ -1058,3 +1058,22 @@ body {
 .stream-content.finished::after {
     display: none;
 }
+
+/* PC交互模式下的硬币容器样式 */
+.coins-container.pc-interactive {
+    cursor: pointer;
+    padding: 20px;
+    border-radius: 24px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.coins-container.pc-interactive:hover {
+    background: rgba(212, 175, 55, 0.05);
+    border-color: rgba(212, 175, 55, 0.3);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
+}
+
+.coins-container.pc-interactive:active {
+    transform: scale(0.98);
+}

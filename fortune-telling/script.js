@@ -15,6 +15,65 @@ const state = {
     currentInterpretation: ''   // 当前解读内容
 };
 
+let isMobileDevice = false;
+
+function checkDeviceType() {
+    isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+}
+
+// ========================================
+// 摇一摇检测逻辑
+// ========================================
+
+let lastShakeTime = 0;
+const SHAKE_THRESHOLD = 15;
+let lastX = null, lastY = null, lastZ = null;
+
+function handleDeviceMotion(event) {
+    if (!coinModule || coinModule.isFlipping || coinModule.throwCount >= 6 || state.currentPage !== 'coin') return;
+
+    const acceleration = event.accelerationIncludingGravity;
+    if (!acceleration) return;
+
+    const currentX = acceleration.x;
+    const currentY = acceleration.y;
+    const currentZ = acceleration.z;
+
+    if (lastX !== null && lastY !== null && lastZ !== null) {
+        const deltaX = Math.abs(currentX - lastX);
+        const deltaY = Math.abs(currentY - lastY);
+        const deltaZ = Math.abs(currentZ - lastZ);
+
+        if (deltaX > SHAKE_THRESHOLD || deltaY > SHAKE_THRESHOLD || deltaZ > SHAKE_THRESHOLD) {
+            const now = Date.now();
+            if (now - lastShakeTime > 2000) { // 防抖，2秒内只触发一次
+                lastShakeTime = now;
+                handleThrowClick();
+            }
+        }
+    }
+
+    lastX = currentX;
+    lastY = currentY;
+    lastZ = currentZ;
+}
+
+function setupShakeEvent() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        // iOS 13+ 必须由用户手势触发请求
+        DeviceMotionEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('devicemotion', handleDeviceMotion, false);
+                }
+            })
+            .catch(console.error);
+    } else {
+        // 其他设备直接监听
+        window.addEventListener('devicemotion', handleDeviceMotion, false);
+    }
+}
+
 // ========================================
 // 模块实例
 // ========================================
@@ -113,6 +172,8 @@ function initElements() {
 // ========================================
 
 function initModules() {
+    const defaultHint = isMobileDevice ? '摇晃手机或点击下方按钮掷出铜钱' : '点击上方硬币区域掷出铜钱';
+    
     // 初始化铜钱模块
     coinModule = new CoinModule();
     coinModule.init({
@@ -121,6 +182,7 @@ function initModules() {
         throwResult: elements.throwResult,
         throwBtn: elements.throwBtn,
         currentThrow: elements.currentThrow,
+        defaultHintText: defaultHint,
         onComplete: handleHexagramComplete
     });
     
@@ -174,6 +236,11 @@ function handleStartClick() {
         return;
     }
     state.userQuestion = question;
+    
+    if (isMobileDevice) {
+        setupShakeEvent();
+    }
+    
     showPage('coin');
 }
 
@@ -305,6 +372,10 @@ function handleRestartClick() {
     elements.userQuestion.value = '';
     elements.throwBtn.onclick = handleThrowClick;
     
+    if (!isMobileDevice) {
+        elements.throwBtn.style.display = 'none';
+    }
+    
     // 返回欢迎页
     showPage('welcome');
 }
@@ -355,8 +426,20 @@ function bindEvents() {
     // 重新开始
     elements.restartBtn.addEventListener('click', handleRestartClick);
     
-    // 导出 PDF
+    // 导出长图
     elements.exportPngBtn.addEventListener('click', handleExportPng);
+    
+    // PC/Mobile 差异化绑定
+    if (!isMobileDevice) {
+        // PC 端隐藏按钮，将事件绑定到硬币容器
+        elements.throwBtn.style.display = 'none';
+        
+        const coinsContainer = document.querySelector('.coins-container');
+        if (coinsContainer) {
+            coinsContainer.addEventListener('click', handleThrowClick);
+            coinsContainer.classList.add('pc-interactive');
+        }
+    }
 }
 
 // ========================================
@@ -395,7 +478,17 @@ function fillApiForm() {
 // ========================================
 
 async function init() {
+    checkDeviceType();
     initElements();
+    
+    // 提前更新文本，以免出现闪烁
+    if (elements.throwResult) {
+        const resultSpan = elements.throwResult.querySelector('.result-text');
+        if (resultSpan) {
+            resultSpan.textContent = isMobileDevice ? '摇晃手机或点击下方按钮掷出铜钱' : '点击上方硬币区域掷出铜钱';
+        }
+    }
+    
     initModules();
     bindEvents();
     addShakeStyle();

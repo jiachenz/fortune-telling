@@ -109,6 +109,7 @@ class CoinModule {
         this.throwBtnElement = options.throwBtn;
         this.currentThrowElement = options.currentThrow;
         this.onComplete = options.onComplete;
+        this.defaultHintText = options.defaultHintText || '点击下方按钮掷出铜钱';
     }
 
     /**
@@ -249,6 +250,7 @@ class CoinModule {
         } else {
             // 完成六爻
             if (this.throwBtnElement) {
+                this.throwBtnElement.style.display = 'flex'; // 确保在PC端隐藏后能重新显示
                 this.throwBtnElement.textContent = '查看卦象';
                 this.throwBtnElement.disabled = false;
                 this.throwBtnElement.onclick = () => {
@@ -321,7 +323,7 @@ class CoinModule {
         }
         if (this.throwResultElement) {
             const resultSpan = this.throwResultElement.querySelector('.result-text');
-            resultSpan.textContent = '点击下方按钮掷出铜钱';
+            resultSpan.textContent = this.defaultHintText;
             resultSpan.className = 'result-text';
         }
         if (this.throwBtnElement) {
