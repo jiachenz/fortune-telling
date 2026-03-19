@@ -1,114 +1,167 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- 古铜色渐变 - 反面 -->
-    <radialGradient id="coinGradientBack" cx="65%" cy="65%" r="65%" fx="65%" fy="65%">
-      <stop offset="0%" style="stop-color:#C9B896"/>
-      <stop offset="30%" style="stop-color:#A89070"/>
-      <stop offset="60%" style="stop-color:#8B7355"/>
-      <stop offset="100%" style="stop-color:#6B5344"/>
+    <!-- 主体古铜径向渐变（反面光线偏右下，模拟翻面后） -->
+    <radialGradient id="cbBase" cx="62%" cy="68%" r="70%" fx="62%" fy="68%">
+      <stop offset="0%"   stop-color="#D4B896"/>
+      <stop offset="20%"  stop-color="#B8956A"/>
+      <stop offset="50%"  stop-color="#8C6840"/>
+      <stop offset="78%"  stop-color="#6A4C2C"/>
+      <stop offset="100%" stop-color="#4A3018"/>
     </radialGradient>
-    
-    <!-- 花瓣渐变 -->
-    <radialGradient id="petalGradient" cx="50%" cy="30%" r="70%">
-      <stop offset="0%" style="stop-color:#6B5344"/>
-      <stop offset="100%" style="stop-color:#4A3728"/>
+
+    <!-- 边缘厚度渐变 -->
+    <radialGradient id="cbRim" cx="50%" cy="50%" r="50%">
+      <stop offset="82%"  stop-color="transparent"/>
+      <stop offset="90%"  stop-color="#C8A060" stop-opacity="0.35"/>
+      <stop offset="96%"  stop-color="#5C3C18" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#2E1C08" stop-opacity="0.85"/>
+    </radialGradient>
+
+    <!-- 高光（反面偏右下照） -->
+    <radialGradient id="cbHighlight" cx="65%" cy="75%" r="40%" fx="65%" fy="75%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.4"/>
+      <stop offset="55%"  stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 顶部反光（环境光） -->
+    <radialGradient id="cbReflect" cx="38%" cy="22%" r="30%">
+      <stop offset="0%"   stop-color="#E8C888" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#E8C888" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 梅花花瓣渐变：userSpaceOnUse 固定圆心在硬币中心(100,100)，所有花瓣共享同一渐变 -->
+    <radialGradient id="cbPetal" gradientUnits="userSpaceOnUse" cx="100" cy="100" r="68">
+      <stop offset="0%"   stop-color="#9A6C3A"/>
+      <stop offset="40%"  stop-color="#6A4525"/>
+      <stop offset="100%" stop-color="#3A2210"/>
+    </radialGradient>
+
+    <!-- 方孔 -->
+    <linearGradient id="cbHole" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#1A0E00"/>
+      <stop offset="100%" stop-color="#2E1A08"/>
+    </linearGradient>
+
+    <!-- 浮雕滤镜 -->
+    <filter id="cbEmboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" result="blur"/>
+      <feOffset in="blur" dx="-1" dy="-1" result="shadow"/>
+      <feComposite in="SourceGraphic" in2="shadow" operator="over"/>
+    </filter>
+
+    <!-- 铸造纹理 -->
+    <filter id="cbTexture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="textured"/>
+      <feComposite in="textured" in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <!-- 旧铜绿锈效果遮罩 -->
+    <radialGradient id="cbPatina" cx="30%" cy="40%" r="50%">
+      <stop offset="0%"   stop-color="#5A7A50" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#5A7A50" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  
-  <!-- 外圆 - 钱币主体 -->
-  <circle cx="100" cy="100" r="95" fill="url(#coinGradientBack)" 
-          stroke="#5C4033" stroke-width="3"/>
-  
-  <!-- 外圆边缘纹理 -->
-  <circle cx="100" cy="100" r="90" fill="none" 
-          stroke="#8B7355" stroke-width="1" opacity="0.5"/>
-  <circle cx="100" cy="100" r="85" fill="none" 
-          stroke="#6B5344" stroke-width="2"/>
-  
-  <!-- ===== 大梅花（占据约2/3面积）===== -->
-  <g transform="translate(100, 100)" fill="url(#petalGradient)" opacity="0.9">
-    
-    <!-- 五片花瓣 - 均匀分布在圆周上 -->
-    <!-- 花瓣1 - 上 -->
-    <ellipse cx="0" cy="-42" rx="22" ry="32" 
-             stroke="#3D2914" stroke-width="1.5"/>
-    
-    <!-- 花瓣2 - 右上 -->
-    <ellipse cx="40" cy="-13" rx="22" ry="32" 
-             transform="rotate(72 40 -13)"
-             stroke="#3D2914" stroke-width="1.5"/>
-    
-    <!-- 花瓣3 - 右下 -->
-    <ellipse cx="25" cy="34" rx="22" ry="32" 
-             transform="rotate(144 25 34)"
-             stroke="#3D2914" stroke-width="1.5"/>
-    
-    <!-- 花瓣4 - 左下 -->
-    <ellipse cx="-25" cy="34" rx="22" ry="32" 
-             transform="rotate(-144 -25 34)"
-             stroke="#3D2914" stroke-width="1.5"/>
-    
-    <!-- 花瓣5 - 左上 -->
-    <ellipse cx="-40" cy="-13" rx="22" ry="32" 
-             transform="rotate(-72 -40 -13)"
-             stroke="#3D2914" stroke-width="1.5"/>
-    
-    <!-- 花瓣内部纹理线条 -->
-    <g stroke="#5C4033" stroke-width="1" fill="none" opacity="0.6">
-      <!-- 上花瓣纹理 -->
-      <path d="M0,-20 Q0,-35 0,-50"/>
-      <path d="M-6,-22 Q-4,-38 -2,-48"/>
-      <path d="M6,-22 Q4,-38 2,-48"/>
-      
-      <!-- 右上花瓣纹理 -->
-      <path d="M20,-6 Q32,-10 42,-18" transform="rotate(72 20 -6)"/>
-      
-      <!-- 右下花瓣纹理 -->
-      <path d="M12,17 Q20,28 26,40" transform="rotate(144 12 17)"/>
-      
-      <!-- 左下花瓣纹理 -->
-      <path d="M-12,17 Q-20,28 -26,40" transform="rotate(-144 -12 17)"/>
-      
-      <!-- 左上花瓣纹理 -->
-      <path d="M-20,-6 Q-32,-10 -42,-18" transform="rotate(-72 -20 -6)"/>
+
+  <!-- === 1. 主体 === -->
+  <circle cx="100" cy="100" r="95" fill="url(#cbBase)"/>
+  <!-- 铸造纹理 -->
+  <circle cx="100" cy="100" r="95" fill="url(#cbBase)" filter="url(#cbTexture)" opacity="0.15"/>
+  <!-- 铜绿做旧叠加 -->
+  <circle cx="100" cy="100" r="95" fill="url(#cbPatina)"/>
+
+  <!-- === 2. 边沿 === -->
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#2A1600" stroke-width="5" opacity="0.65"/>
+  <!-- 受光侧亮线（右下） -->
+  <circle cx="100" cy="100" r="93" fill="none" stroke="#C8A060" stroke-width="1.5" opacity="0.5"
+          stroke-dasharray="240 120" stroke-dashoffset="-60"/>
+  <circle cx="100" cy="100" r="95" fill="url(#cbRim)"/>
+  <!-- 内凸环 -->
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#6B4C28" stroke-width="3" opacity="0.45"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#A87840" stroke-width="0.8" opacity="0.35"/>
+
+  <!-- === 3. 梅花图案 === -->
+  <g transform="translate(100,100)">
+
+    <!-- 五片花瓣 -->
+    <!-- 阴影层（偏移1px，统一深色） -->
+    <g fill="#2A1608" opacity="0.45">
+      <ellipse cx="1"  cy="-43" rx="21" ry="31"/>
+      <ellipse cx="1"  cy="-43" rx="21" ry="31" transform="rotate(72  0 0)"/>
+      <ellipse cx="1"  cy="-43" rx="21" ry="31" transform="rotate(144 0 0)"/>
+      <ellipse cx="1"  cy="-43" rx="21" ry="31" transform="rotate(216 0 0)"/>
+      <ellipse cx="1"  cy="-43" rx="21" ry="31" transform="rotate(288 0 0)"/>
     </g>
-    
-    <!-- 花蕊 - 中心圆环 -->
-    <circle cx="0" cy="0" r="16" fill="#8B7355" stroke="#5C4033" stroke-width="2"/>
-    <circle cx="0" cy="0" r="10" fill="#A89070" stroke="#6B5344" stroke-width="1"/>
-    
-    <!-- 花蕊点 - 五个小点围绕中心 -->
-    <circle cx="0" cy="-8" r="2.5" fill="#5C4033"/>
-    <circle cx="7.6" cy="-2.5" r="2.5" fill="#5C4033"/>
-    <circle cx="4.7" cy="6.5" r="2.5" fill="#5C4033"/>
-    <circle cx="-4.7" cy="6.5" r="2.5" fill="#5C4033"/>
-    <circle cx="-7.6" cy="-2.5" r="2.5" fill="#5C4033"/>
-    
+    <!-- 主色层（使用 userSpaceOnUse 渐变，圆心固定在画布中心） -->
+    <g fill="url(#cbPetal)" stroke="#3A2010" stroke-width="1.2">
+      <ellipse cx="0"  cy="-42" rx="21" ry="31"/>
+      <ellipse cx="0"  cy="-42" rx="21" ry="31" transform="rotate(72  0 0)"/>
+      <ellipse cx="0"  cy="-42" rx="21" ry="31" transform="rotate(144 0 0)"/>
+      <ellipse cx="0"  cy="-42" rx="21" ry="31" transform="rotate(216 0 0)"/>
+      <ellipse cx="0"  cy="-42" rx="21" ry="31" transform="rotate(288 0 0)"/>
+    </g>
+
+    <!-- 花瓣脉络（纤细纹路） -->
+    <g stroke="#6B4A28" stroke-width="0.8" fill="none" opacity="0.55">
+      <line x1="0" y1="-18" x2="0"  y2="-60"/>
+      <line x1="-5" y1="-20" x2="-4" y2="-58"/>
+      <line x1="5"  y1="-20" x2="4"  y2="-58"/>
+      <line x1="0" y1="-18" x2="0"  y2="-60" transform="rotate(72  0 0)"/>
+      <line x1="-5" y1="-20" x2="-4" y2="-58" transform="rotate(72  0 0)"/>
+      <line x1="5"  y1="-20" x2="4"  y2="-58" transform="rotate(72  0 0)"/>
+      <line x1="0" y1="-18" x2="0"  y2="-60" transform="rotate(144 0 0)"/>
+      <line x1="-5" y1="-20" x2="-4" y2="-58" transform="rotate(144 0 0)"/>
+      <line x1="5"  y1="-20" x2="4"  y2="-58" transform="rotate(144 0 0)"/>
+      <line x1="0" y1="-18" x2="0"  y2="-60" transform="rotate(216 0 0)"/>
+      <line x1="-5" y1="-20" x2="-4" y2="-58" transform="rotate(216 0 0)"/>
+      <line x1="5"  y1="-20" x2="4"  y2="-58" transform="rotate(216 0 0)"/>
+      <line x1="0" y1="-18" x2="0"  y2="-60" transform="rotate(288 0 0)"/>
+      <line x1="-5" y1="-20" x2="-4" y2="-58" transform="rotate(288 0 0)"/>
+      <line x1="5"  y1="-20" x2="4"  y2="-58" transform="rotate(288 0 0)"/>
+    </g>
+
+    <!-- 花蕊外圆 -->
+    <circle r="17" fill="#8C6840" stroke="#4A3018" stroke-width="2"/>
+    <!-- 花蕊内圆高光 -->
+    <circle r="13" fill="#A87848" stroke="#6B4C28" stroke-width="1"/>
+    <circle r="9"  fill="#B88850"/>
+    <!-- 花蕊五点 -->
+    <circle cx="0"    cy="-8"  r="2.5" fill="#4A3018"/>
+    <circle cx="7.6"  cy="-2.5" r="2.5" fill="#4A3018"/>
+    <circle cx="4.7"  cy="6.5" r="2.5" fill="#4A3018"/>
+    <circle cx="-4.7" cy="6.5" r="2.5" fill="#4A3018"/>
+    <circle cx="-7.6" cy="-2.5" r="2.5" fill="#4A3018"/>
     <!-- 中心点 -->
-    <circle cx="0" cy="0" r="3" fill="#6B5344"/>
+    <circle r="3" fill="#3A2210"/>
   </g>
-  
-  <!-- 中间方孔（覆盖在花蕊上方） -->
-  <rect x="82" y="82" width="36" height="36" rx="2" ry="2"
-        fill="#1A1A1A" stroke="#3D2914" stroke-width="2"/>
-  
-  <!-- 方孔内边缘 -->
-  <rect x="84" y="84" width="32" height="32" rx="1" ry="1"
-        fill="none" stroke="#5C4033" stroke-width="1" opacity="0.5"/>
-  
-  <!-- 做旧斑点效果 -->
-  <circle cx="65" cy="55" r="5" fill="#5C4033" opacity="0.08"/>
-  <circle cx="145" cy="135" r="7" fill="#4A3728" opacity="0.06"/>
-  <circle cx="50" cy="145" r="4" fill="#5C4033" opacity="0.08"/>
-  <circle cx="155" cy="65" r="6" fill="#4A3728" opacity="0.05"/>
-  
-  <!-- 边缘磨损效果 -->
-  <circle cx="100" cy="100" r="95" fill="none" 
-          stroke="#3D2914" stroke-width="1" opacity="0.25"
-          stroke-dasharray="3,5"/>
-  
-  <!-- 高光效果 -->
-  <ellipse cx="70" cy="70" rx="30" ry="22" 
-           fill="white" opacity="0.06" transform="rotate(-35 70 70)"/>
+
+  <!-- === 4. 方孔 === -->
+  <rect x="82" y="82" width="36" height="36" rx="2" fill="url(#cbHole)"/>
+  <!-- 孔内壁亮边（右下受光） -->
+  <line x1="118" y1="82"  x2="118" y2="118" stroke="#A07840" stroke-width="1.2" opacity="0.5"/>
+  <line x1="82"  y1="118" x2="118" y2="118" stroke="#A07840" stroke-width="1.2" opacity="0.5"/>
+  <!-- 孔内壁暗边 -->
+  <line x1="82" y1="82" x2="118" y2="82"  stroke="#1A0C00" stroke-width="1.5" opacity="0.7"/>
+  <line x1="82" y1="82" x2="82"  y2="118" stroke="#1A0C00" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- === 5. 做旧磨痕 === -->
+  <circle cx="58"  cy="48"  r="6"  fill="#5C3A18" opacity="0.06"/>
+  <circle cx="148" cy="140" r="9"  fill="#4A3018" opacity="0.05"/>
+  <circle cx="45"  cy="148" r="5"  fill="#5C3A18" opacity="0.07"/>
+  <circle cx="152" cy="58"  r="7"  fill="#4A3018" opacity="0.04"/>
+  <circle cx="90"  cy="160" r="4"  fill="#5A6A40" opacity="0.06"/>
+
+  <!-- 边缘磨损虚线 -->
+  <circle cx="100" cy="100" r="95" fill="none"
+          stroke="#2A1400" stroke-width="1" opacity="0.2"
+          stroke-dasharray="4,7"/>
+
+  <!-- === 6. 光影 === -->
+  <!-- 右下主高光 -->
+  <ellipse cx="122" cy="138" rx="36" ry="22" fill="url(#cbHighlight)" transform="rotate(25 122 138)"/>
+  <!-- 左上环境反光 -->
+  <ellipse cx="72" cy="58" rx="25" ry="16" fill="url(#cbReflect)" transform="rotate(-20 72 58)"/>
 </svg>

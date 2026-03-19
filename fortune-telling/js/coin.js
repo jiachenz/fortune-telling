@@ -109,37 +109,44 @@ class CoinModule {
         this.throwBtnElement = options.throwBtn;
         this.currentThrowElement = options.currentThrow;
         this.onComplete = options.onComplete;
+        this.defaultHintText = options.defaultHintText || '点击下方按钮掷出铜钱';
+        this.sound = window.SoundModule ? new window.SoundModule() : null;
     }
 
     /**
      * 翻转单个铜钱动画
+     * @param {number} startDelay - 该枚硬币开始动画的延迟（ms）
+     * @param {number} pitchRate  - 音调速率，使三枚声音略有差异（0.85~1.15）
      */
-    flipCoin(coinElement, showFront) {
+    flipCoin(coinElement, showFront, startDelay = 0, pitchRate = 1.0) {
         return new Promise(resolve => {
             const finalRotation = showFront ? 0 : 180;
-            // 增加随机性，让每个铜钱的最终旋转角度略有不同
             const randomOffset = Math.floor(Math.random() * 4) * 360;
-            coinElement.querySelector('.coin-inner').style.setProperty(
-                '--final-rotation', 
-                `${finalRotation + 2880 + randomOffset}deg`
-            );
-            
-            coinElement.classList.add('flipping');
-            
-            // 动画完成后添加落地效果
+
             setTimeout(() => {
-                coinElement.classList.remove('flipping');
-                coinElement.classList.remove('show-front', 'show-back');
-                coinElement.classList.add(showFront ? 'show-front' : 'show-back');
-                coinElement.classList.add('landed');
-                
-                // 移除落地效果类
+                coinElement.querySelector('.coin-inner').style.setProperty(
+                    '--final-rotation',
+                    `${finalRotation + 2880 + randomOffset}deg`
+                );
+                coinElement.classList.add('flipping');
+
+                // 抛起时播放音效，音量根据是否第一枚有所区分
+                if (this.sound) {
+                    const vol = startDelay === 0 ? 1.0 : 0.75;
+                    this.sound.playCoin(pitchRate, vol);
+                }
+
+                // 1400ms 后落地（与 CSS 动画对齐）
                 setTimeout(() => {
-                    coinElement.classList.remove('landed');
-                }, 300);
-                
-                resolve();
-            }, 1000); // 与CSS动画时长匹配
+                    coinElement.classList.remove('flipping');
+                    coinElement.classList.remove('show-front', 'show-back');
+                    coinElement.classList.add(showFront ? 'show-front' : 'show-back');
+                    coinElement.classList.add('landed');
+                    setTimeout(() => coinElement.classList.remove('landed'), 350);
+                    resolve();
+                }, 1400);
+
+            }, startDelay);
         });
     }
 
@@ -160,8 +167,12 @@ class CoinModule {
             results.push(Math.random() < 0.5); // true = 正面（阳），false = 反面（阴）
         }
         
-        // 动画翻转铜钱
-        await Promise.all(this.coinElements.map((coin, i) => this.flipCoin(coin, results[i])));
+        // 三枚硬币依次错开 120ms 启动，音调略有差异增加真实感
+        const startDelays = [0, 120, 240];
+        const pitchRates  = [1.0, 0.93, 1.07];
+        await Promise.all(this.coinElements.map((coin, i) =>
+            this.flipCoin(coin, results[i], startDelays[i], pitchRates[i])
+        ));
         
         // 计算这一爻的值 (正面 = 3，反面 = 2)
         const value = results.reduce((sum, isFront) => sum + (isFront ? 3 : 2), 0);
@@ -249,6 +260,7 @@ class CoinModule {
         } else {
             // 完成六爻
             if (this.throwBtnElement) {
+                this.throwBtnElement.style.display = 'flex'; // 确保在PC端隐藏后能重新显示
                 this.throwBtnElement.textContent = '查看卦象';
                 this.throwBtnElement.disabled = false;
                 this.throwBtnElement.onclick = () => {
@@ -321,7 +333,7 @@ class CoinModule {
         }
         if (this.throwResultElement) {
             const resultSpan = this.throwResultElement.querySelector('.result-text');
-            resultSpan.textContent = '点击下方按钮掷出铜钱';
+            resultSpan.textContent = this.defaultHintText;
             resultSpan.className = 'result-text';
         }
         if (this.throwBtnElement) {

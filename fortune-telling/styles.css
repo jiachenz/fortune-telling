@@ -399,28 +399,60 @@ body {
     transition: transform 0.1s ease;
 }
 
-.coin.flipping .coin-inner {
-    animation: coinFlip 1s ease-out forwards;
+/* 抛硬币时：外层控制缩放（模拟远近），内层控制旋转 */
+.coin.flipping {
+    animation: coinThrow 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
-@keyframes coinFlip {
-    0% { 
-        transform: rotateY(0deg) translateY(0) rotateX(0deg); 
+.coin.flipping .coin-inner {
+    animation: coinSpin 1.4s ease-out forwards;
+}
+
+/* 外层：从小变大再变小，模拟从地面抛起然后落下 */
+@keyframes coinThrow {
+    0% {
+        transform: scale(0.25) translateY(60px);
+        filter: brightness(0.6);
     }
-    20% { 
-        transform: rotateY(720deg) translateY(-100px) rotateX(15deg); 
+    15% {
+        transform: scale(0.6) translateY(10px);
+        filter: brightness(0.85);
     }
-    40% { 
-        transform: rotateY(1440deg) translateY(-60px) rotateX(-10deg); 
+    38% {
+        transform: scale(1.15) translateY(-20px);
+        filter: brightness(1.15);
     }
-    60% { 
-        transform: rotateY(2160deg) translateY(-30px) rotateX(5deg); 
+    55% {
+        transform: scale(1.0) translateY(-8px);
+        filter: brightness(1.08);
     }
-    80% { 
-        transform: rotateY(2880deg) translateY(-10px) rotateX(-2deg); 
+    72% {
+        transform: scale(0.88) translateY(4px);
+        filter: brightness(0.95);
     }
-    100% { 
-        transform: rotateY(var(--final-rotation)) translateY(0) rotateX(0deg); 
+    85% {
+        transform: scale(0.95) translateY(0px);
+        filter: brightness(1.0);
+    }
+    100% {
+        transform: scale(1.0) translateY(0px);
+        filter: brightness(1.0);
+    }
+}
+
+/* 内层：只做Y轴旋转（翻面） */
+@keyframes coinSpin {
+    0% {
+        transform: rotateY(0deg);
+    }
+    30% {
+        transform: rotateY(1080deg);
+    }
+    65% {
+        transform: rotateY(2520deg);
+    }
+    100% {
+        transform: rotateY(var(--final-rotation));
     }
 }
 
@@ -458,20 +490,30 @@ body {
     background: transparent;
 }
 
-/* 铜钱悬停效果 */
-.coin:hover .coin-inner {
+/* 铜钱悬停效果（不在翻转中才生效） */
+.coin:not(.flipping):hover .coin-inner {
     transform: scale(1.05);
     transition: transform 0.3s ease;
 }
 
-.coin:hover .coin-front img,
-.coin:hover .coin-back img {
+.coin:not(.flipping):hover .coin-front img,
+.coin:not(.flipping):hover .coin-back img {
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4)) brightness(1.1);
 }
 
-/* 显示结果状态 */
+/* 显示结果状态（外层重置缩放，内层控制翻面方向） */
+.coin.show-front {
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+}
+
 .coin.show-front .coin-inner {
     transform: rotateY(0deg);
+}
+
+.coin.show-back {
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
 }
 
 .coin.show-back .coin-inner {
@@ -479,14 +521,15 @@ body {
 }
 
 /* 铜钱落地弹跳效果 */
-.coin.landed .coin-inner {
-    animation: coinBounce 0.3s ease-out;
+.coin.landed {
+    animation: coinBounceOuter 0.35s ease-out forwards;
 }
 
-@keyframes coinBounce {
-    0% { transform: translateY(-5px); }
-    50% { transform: translateY(2px); }
-    100% { transform: translateY(0); }
+@keyframes coinBounceOuter {
+    0%   { transform: scale(1.0) translateY(0); }
+    30%  { transform: scale(1.04) translateY(-4px); }
+    65%  { transform: scale(0.97) translateY(2px); }
+    100% { transform: scale(1.0) translateY(0); }
 }
 
 /* 投掷结果显示 */
@@ -1057,4 +1100,23 @@ body {
 /* 流式内容完成后隐藏光标 */
 .stream-content.finished::after {
     display: none;
+}
+
+/* PC交互模式下的硬币容器样式 */
+.coins-container.pc-interactive {
+    cursor: pointer;
+    padding: 20px;
+    border-radius: 24px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.coins-container.pc-interactive:hover {
+    background: rgba(212, 175, 55, 0.05);
+    border-color: rgba(212, 175, 55, 0.3);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
+}
+
+.coins-container.pc-interactive:active {
+    transform: scale(0.98);
 }
