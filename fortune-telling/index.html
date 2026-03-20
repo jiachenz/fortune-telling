@@ -57,7 +57,6 @@
                          data-ad-slot=""
                          data-ad-format="auto"
                          data-full-width-responsive="true"></ins>
-                    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
                 </div>
             </div>
         </section>
@@ -119,7 +118,6 @@
                          data-ad-slot=""
                          data-ad-format="auto"
                          data-full-width-responsive="true"></ins>
-                    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
                 </div>
 
                 <!-- 已完成的爻显示 -->
@@ -178,7 +176,6 @@
                          data-ad-slot=""
                          data-ad-format="auto"
                          data-full-width-responsive="true"></ins>
-                    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
                 </div>
 
                 <div class="result-buttons">
@@ -228,5 +225,13 @@
     <script src="js/renderer.js"></script>
     <script src="js/png-export.js"></script>
     <script src="script.js"></script>
+    <!-- 广告初始化（slot 填写后自动生效） -->
+    <script>
+        document.querySelectorAll('.adsbygoogle[data-ad-slot]').forEach(function(ins) {
+            if (ins.getAttribute('data-ad-slot')) {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            }
+        });
+    </script>
 </body>
 </html>
