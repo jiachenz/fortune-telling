@@ -1120,3 +1120,13 @@ body {
 .coins-container.pc-interactive:active {
     transform: scale(0.98);
 }
+
+/* Google AdSense 广告容器 */
+.ad-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto 0;
+    min-height: 100px;
+    text-align: center;
+    opacity: 0.9;
+}
