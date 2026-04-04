@@ -158,13 +158,107 @@ class PngExportModule {
     }
 
     /**
+     * 检测是否为移动端
+     */
+    isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            || window.innerWidth <= 768;
+    }
+
+    /**
+     * 将 canvas 转为 Blob
+     */
+    canvasToBlob(canvas, type = 'image/png') {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('Canvas 转 Blob 失败'));
+            }, type);
+        });
+    }
+
+    /**
+     * 移动端保存：优先使用 Web Share API，回退到新窗口预览
+     */
+    async saveMobile(canvas, fileName) {
+        const blob = await this.canvasToBlob(canvas);
+        const file = new File([blob], fileName, { type: 'image/png' });
+
+        // 优先尝试 Web Share API（iOS Safari 15+、Android Chrome 均支持）
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: '卦象解读',
+                    text: '周易六爻铜钱占卜结果'
+                });
+                return;
+            } catch (e) {
+                if (e.name === 'AbortError') return; // 用户取消分享
+            }
+        }
+
+        // 回退方案：用 Blob URL 在新窗口打开，提示长按保存
+        const url = URL.createObjectURL(blob);
+        const preview = window.open('');
+        if (preview) {
+            preview.document.write(`
+                <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+                <title>长按图片保存</title>
+                <style>body{margin:0;display:flex;flex-direction:column;align-items:center;background:#f5f5f5;padding:16px;}
+                img{max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.15);}
+                .tip{margin:16px 0;padding:10px 20px;background:#c41e3a;color:#fff;border-radius:20px;font-size:14px;}</style></head>
+                <body><div class="tip">长按图片即可保存到相册</div><img src="${url}"></body></html>
+            `);
+            preview.document.close();
+        } else {
+            // 弹窗被拦截时，直接在当前页展示
+            this.showInlinePreview(url);
+        }
+    }
+
+    /**
+     * 内联预览（弹窗被拦截时的最终回退）
+     */
+    showInlinePreview(blobUrl) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:20px;';
+        overlay.innerHTML = `
+            <div style="color:#fff;font-size:14px;margin-bottom:12px;padding:8px 16px;background:#c41e3a;border-radius:20px;">长按图片保存到相册</div>
+            <img src="${blobUrl}" style="max-width:100%;border-radius:8px;">
+            <button style="margin:16px 0;padding:10px 30px;background:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;">关闭</button>
+        `;
+        overlay.querySelector('button').onclick = () => {
+            URL.revokeObjectURL(blobUrl);
+            overlay.remove();
+        };
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                URL.revokeObjectURL(blobUrl);
+                overlay.remove();
+            }
+        });
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * 桌面端保存：使用 Blob URL + <a download>（比 data URL 更可靠）
+     */
+    saveDesktop(canvas, fileName) {
+        const url = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = url;
+        link.click();
+    }
+
+    /**
      * 导出为长截图 PNG
      */
     async exportToPng(hexagramData, userQuestion, interpretation) {
         if (this.isExporting) return;
         this.isExporting = true;
 
-        // 创建屏幕外容器，绝对定位移出可视区域
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:700px;z-index:-1;';
         wrapper.innerHTML = this.generateExportHtml(hexagramData, userQuestion, interpretation);
@@ -172,7 +266,6 @@ class PngExportModule {
 
         const content = wrapper.querySelector('#screenshot-content');
 
-        // 等待一帧确保浏览器完成布局计算
         await new Promise(r => requestAnimationFrame(r));
 
         try {
@@ -187,18 +280,17 @@ class PngExportModule {
                 logging: false
             });
 
-            // 转成 PNG 并触发下载
-            const dataUrl = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
             const datePart = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-');
-            link.download = `周易占卜_${hexagramData.main.name}_${datePart}.png`;
-            link.href = dataUrl;
-            link.click();
+            const fileName = `周易占卜_${hexagramData.main.name}_${datePart}.png`;
+
+            if (this.isMobile()) {
+                await this.saveMobile(canvas, fileName);
+            } else {
+                this.saveDesktop(canvas, fileName);
+            }
 
         } catch (error) {
-            console.error('截图导出失败 - 类型:', error.name);
-            console.error('截图导出失败 - 信息:', error.message);
-            console.error('截图导出失败 - 堆栈:', error.stack);
+            console.error('截图导出失败:', error);
             alert(`截图导出失败：${error.message || error}`);
         } finally {
             document.body.removeChild(wrapper);
