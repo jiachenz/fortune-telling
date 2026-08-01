@@ -23,9 +23,37 @@
                 <div class="title-container">
                     <div class="bagua-symbol">☯</div>
                     <h1 class="main-title">周易六爻</h1>
-                    <p class="subtitle">铜钱占卜 · 问道天机</p>
+                    <p class="subtitle">知几而决</p>
+                    <p class="brand-description">看见变化，理清处境，做出更清醒的选择</p>
                 </div>
-                
+
+                <article id="daily-tip-card" class="daily-tip-card">
+                    <div class="daily-tip-heading">
+                        <span class="daily-tip-mark" aria-hidden="true">
+                            <img src="assets/daily-yi.png" alt="">
+                        </span>
+                        <div class="daily-tip-title-group">
+                            <span class="daily-tip-title">每日一易</span>
+                            <span class="daily-tip-meta" data-tip-meta></span>
+                        </div>
+                    </div>
+                    <blockquote class="daily-tip-quote">
+                        <span data-tip-quote></span>
+                        <cite data-tip-source></cite>
+                    </blockquote>
+                    <button type="button" class="daily-tip-toggle" data-tip-toggle aria-expanded="false">
+                        <span class="daily-tip-toggle-icon" aria-hidden="true"></span>
+                        <span data-tip-toggle-label>展开今日指引</span>
+                    </button>
+                    <div class="daily-tip-details" data-tip-details hidden>
+                        <p><strong>解：</strong><span data-tip-explanation></span></p>
+                        <p><strong>今日行动：</strong><span data-tip-action></span></p>
+                        <button type="button" class="tip-question-btn" data-tip-question>
+                            以此作为今日一问
+                        </button>
+                    </div>
+                </article>
+
                 <div class="question-section">
                     <label for="user-question" class="question-label">
                         <span class="label-icon">✦</span>
@@ -189,6 +217,7 @@
     <script src="js/api.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/png-export.js"></script>
+    <script src="js/daily-tips.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

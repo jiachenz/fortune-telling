@@ -82,6 +82,7 @@ let coinModule = null;
 let apiModule = null;
 let rendererModule = null;
 let pngExportModule = null;
+let dailyTipsModule = null;
 
 // ========================================
 // DOM 元素
@@ -96,6 +97,7 @@ const elements = {
     // 欢迎页
     userQuestion: null,
     startBtn: null,
+    dailyTipCard: null,
     
     // 铜钱页
     currentThrow: null,
@@ -133,6 +135,7 @@ function initElements() {
     
     elements.userQuestion = document.getElementById('user-question');
     elements.startBtn = document.getElementById('start-btn');
+    elements.dailyTipCard = document.getElementById('daily-tip-card');
     
     elements.currentThrow = document.getElementById('current-throw');
     elements.coins = [
@@ -202,6 +205,13 @@ function initModules() {
     
     // 初始化截图导出模块
     pngExportModule = new PngExportModule();
+
+    // 初始化每日一易
+    dailyTipsModule = new DailyTipsModule();
+    dailyTipsModule.init({
+        card: elements.dailyTipCard,
+        questionInput: elements.userQuestion
+    });
 }
 
 // ========================================
