@@ -17,7 +17,6 @@ class ShareModule {
         this.description = '看见变化，理清处境，做出更清醒的选择';
         this.isGeneratingCard = false;
         this.el = {};
-        this.qrDataUrl = '';
     }
 
     /**
@@ -80,25 +79,53 @@ class ShareModule {
     }
 
     /**
-     * 生成二维码并渲染到弹窗，同时缓存 dataURL 供推广图复用
+     * 把二维码绘制到一个 canvas 元素（同步绘制，html2canvas 截图最稳）
+     */
+    makeQrCanvas(text, sizePx) {
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        const count = qr.getModuleCount();
+        const marginModules = 4;
+        const totalModules = count + marginModules * 2;
+        const cell = Math.max(1, Math.floor(sizePx / totalModules));
+        const dim = cell * totalModules;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = dim;
+        canvas.height = dim;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, dim, dim);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < count; r++) {
+            for (let c = 0; c < count; c++) {
+                if (qr.isDark(r, c)) {
+                    ctx.fillRect((c + marginModules) * cell, (r + marginModules) * cell, cell, cell);
+                }
+            }
+        }
+        return canvas;
+    }
+
+    /**
+     * 生成二维码并渲染到弹窗
      */
     renderQr(url) {
-        this.qrDataUrl = '';
+        if (!this.el.qr) return;
+        this.el.qr.innerHTML = '';
         if (typeof qrcode === 'undefined') {
-            if (this.el.qr) this.el.qr.textContent = '二维码库未加载';
+            this.el.qr.textContent = '二维码库未加载';
             return;
         }
         try {
-            const qr = qrcode(0, 'M');
-            qr.addData(url);
-            qr.make();
-            this.qrDataUrl = qr.createDataURL(6, 12);
-            if (this.el.qr) {
-                this.el.qr.innerHTML = `<img src="${this.qrDataUrl}" alt="网站二维码" width="160" height="160">`;
-            }
+            const canvas = this.makeQrCanvas(url, 160);
+            canvas.style.width = '160px';
+            canvas.style.height = '160px';
+            this.el.qr.appendChild(canvas);
         } catch (e) {
             console.error('二维码生成失败:', e);
-            if (this.el.qr) this.el.qr.textContent = '二维码生成失败';
+            this.el.qr.textContent = '二维码生成失败';
         }
     }
 
@@ -172,18 +199,25 @@ class ShareModule {
         document.body.appendChild(wrapper);
 
         const content = wrapper.querySelector('#share-card-content');
+        const qrSlot = wrapper.querySelector('#share-card-qr-slot');
+
         await new Promise(r => requestAnimationFrame(r));
 
         try {
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas 库未加载，请刷新后重试');
             }
+            const scale = 2;
             const canvas = await html2canvas(content, {
-                scale: 2,
+                scale,
                 useCORS: true,
                 backgroundColor: '#fffef5',
                 logging: false
             });
+
+            // 手动把二维码合成到截图上（不依赖 html2canvas 渲染 canvas/img）
+            this.compositeQr(canvas, content, qrSlot);
+
             const fileName = `周易六爻_分享卡片.png`;
             if (this.isMobile()) {
                 await this.saveMobile(canvas, fileName);
@@ -197,6 +231,40 @@ class ShareModule {
             document.body.removeChild(wrapper);
             this.isGeneratingCard = false;
             if (btn) { btn.textContent = originalText; btn.disabled = false; }
+        }
+    }
+
+    /**
+     * 把二维码直接画到 html2canvas 截图结果上（避开 html2canvas 对 canvas/img 的兼容问题）
+     * @param {HTMLCanvasElement} targetCanvas html2canvas 的输出
+     * @param {HTMLElement} content 卡片根节点（#share-card-content）
+     * @param {HTMLElement} slot 二维码占位框（#share-card-qr-slot）
+     * @param {number} scale html2canvas 使用的缩放
+     */
+    compositeQr(targetCanvas, content, slot) {
+        if (!slot || typeof qrcode === 'undefined') return;
+        try {
+            const cRect = content.getBoundingClientRect();
+            const sRect = slot.getBoundingClientRect();
+            // 用输出画布的实际尺寸反推真实缩放，避免 html2canvas 未按 scale 输出时坐标错位
+            const scaleX = targetCanvas.width / cRect.width;
+            const scaleY = targetCanvas.height / cRect.height;
+            const x = (sRect.left - cRect.left) * scaleX;
+            const y = (sRect.top - cRect.top) * scaleY;
+            const w = sRect.width * scaleX;
+            const h = sRect.height * scaleY;
+
+            const qrCanvas = this.makeQrCanvas(this.getShareUrl(), Math.round(Math.min(w, h)));
+            const ctx = targetCanvas.getContext('2d');
+            // 复位上下文状态：html2canvas 渲染后可能残留 globalAlpha=0 / 变换，导致后续绘制不可见
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            const dx = x + (w - qrCanvas.width) / 2;
+            const dy = y + (h - qrCanvas.height) / 2;
+            ctx.drawImage(qrCanvas, dx, dy);
+        } catch (e) {
+            console.error('合成二维码失败:', e);
         }
     }
 
@@ -237,9 +305,6 @@ class ShareModule {
 
     generateCardHtml() {
         const url = this.getShareUrl();
-        const qrImg = this.qrDataUrl
-            ? `<img src="${this.qrDataUrl}" alt="二维码" style="width:180px;height:180px;display:block;">`
-            : `<div style="width:180px;height:180px;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;">二维码</div>`;
 
         return `
             <div id="share-card-content" style="
@@ -268,7 +333,7 @@ class ShareModule {
                     box-shadow:0 6px 20px rgba(0,0,0,0.08);
                     border:1px solid rgba(212,175,55,0.35);
                 ">
-                    ${qrImg}
+                    <div id="share-card-qr-slot" style="width:180px;height:180px;margin:0 auto;"></div>
                 </div>
                 <p style="font-size:14px;color:#c41e3a;margin:18px 0 4px;font-weight:600;">微信扫一扫 · 长按识别</p>
                 <p style="font-size:12px;color:#aaa;margin:0;word-break:break-all;">${url}</p>
