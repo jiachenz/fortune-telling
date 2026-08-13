@@ -3,13 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>周易六爻 · 铜钱占卜</title>
+    <title>周易六爻 · 铜钱占卜 | 知几而决</title>
+
+    <!-- ================================================================
+         分享 / SEO 元信息
+         部署后请把下面所有 https://REPLACE_WITH_YOUR_DOMAIN 替换为你的正式域名
+         （这样把链接粘到微信/朋友圈/微博时，才会显示完整的封面预览卡片）
+         ================================================================ -->
+    <meta name="description" content="周易六爻铜钱占卜 · 知几而决。看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
+    <meta name="keywords" content="周易,六爻,铜钱占卜,算命,卜卦,易经,占卜">
+    <link rel="canonical" href="https://REPLACE_WITH_YOUR_DOMAIN/">
+
+    <!-- Open Graph（微信、朋友圈、Facebook 等通用） -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="周易六爻 · 铜钱占卜">
+    <meta property="og:title" content="周易六爻 · 铜钱占卜 | 知几而决">
+    <meta property="og:description" content="看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
+    <meta property="og:url" content="https://REPLACE_WITH_YOUR_DOMAIN/">
+    <meta property="og:image" content="https://REPLACE_WITH_YOUR_DOMAIN/assets/daily-yi.png">
+    <meta property="og:image:alt" content="周易六爻 · 铜钱占卜">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="周易六爻 · 铜钱占卜 | 知几而决">
+    <meta name="twitter:description" content="看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
+    <meta name="twitter:image" content="https://REPLACE_WITH_YOUR_DOMAIN/assets/daily-yi.png">
+
+    <!-- Favicon（内联 SVG，无需额外文件） -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%AF%3C/text%3E%3C/svg%3E">
+
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Markdown 渲染库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- 截图库（本地）-->
     <script src="assets/html2canvas.min.js"></script>
+    <!-- 二维码生成库（本地）-->
+    <script src="assets/qrcode.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -72,6 +102,11 @@
                 <button id="start-btn" class="primary-btn">
                     <span class="btn-text">开始占卜</span>
                     <span class="btn-icon">→</span>
+                </button>
+
+                <button id="share-app-btn-welcome" type="button" class="share-entry-btn">
+                    <span class="share-entry-icon" aria-hidden="true">◈</span>
+                    <span>分享给朋友</span>
                 </button>
             </div>
         </section>
@@ -175,6 +210,9 @@
                     <button id="export-png-btn" class="primary-btn">
                         <span class="btn-text">🖼️ 保存长图</span>
                     </button>
+                    <button id="share-app-btn" class="secondary-btn">
+                        <span class="btn-text">◈ 分享给朋友</span>
+                    </button>
                     <button id="restart-btn" class="secondary-btn">
                         <span class="btn-text">再占一卦</span>
                     </button>
@@ -209,6 +247,32 @@
                 </div>
             </div>
         </div>
+
+        <!-- 分享弹窗 -->
+        <div id="share-modal" class="modal">
+            <div class="modal-content share-modal-content">
+                <button type="button" class="share-modal-close" id="share-modal-close" aria-label="关闭">×</button>
+                <h3>分享给朋友</h3>
+                <p class="modal-hint">觉得好用，转给需要的人 · 知几而决</p>
+
+                <div class="share-qr-wrap">
+                    <div id="share-qr" class="share-qr"></div>
+                    <span class="share-qr-label">微信扫一扫 / 长按识别二维码</span>
+                </div>
+
+                <div class="share-link-row">
+                    <input type="text" id="share-link-input" class="share-link-input" readonly>
+                    <button type="button" id="share-copy-btn" class="primary-btn small">复制链接</button>
+                </div>
+
+                <div class="share-modal-actions">
+                    <button type="button" id="share-system-btn" class="secondary-btn small">系统分享</button>
+                    <button type="button" id="share-card-btn" class="secondary-btn small">生成分享图</button>
+                </div>
+
+                <p class="share-modal-tip">微信聊天里可直接粘贴链接发给好友，或保存分享图转发</p>
+            </div>
+        </div>
     </div>
 
     <!-- 模块化 JS -->
@@ -217,6 +281,7 @@
     <script src="js/api.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/png-export.js"></script>
+    <script src="js/share.js"></script>
     <script src="js/daily-tips.js"></script>
     <script src="script.js"></script>
 </body>

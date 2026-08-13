@@ -1411,3 +1411,183 @@ body {
 .coins-container.pc-interactive:active {
     transform: scale(0.98);
 }
+
+/* ========================================
+   分享功能
+   ======================================== */
+
+/* 小尺寸按钮（弹窗内 / 复制按钮） */
+.primary-btn.small,
+.secondary-btn.small {
+    padding: 12px 20px;
+    font-size: 14px;
+    gap: 6px;
+}
+
+/* 欢迎页分享入口（低调的文字按钮） */
+.share-entry-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px auto 0;
+    padding: 8px 20px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--gold);
+    background: transparent;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.share-entry-btn:hover {
+    background: rgba(212, 175, 55, 0.1);
+    border-color: var(--gold);
+    transform: translateY(-1px);
+}
+
+.share-entry-icon {
+    color: var(--primary-red);
+}
+
+/* 分享弹窗 */
+.share-modal-content {
+    position: relative;
+    text-align: center;
+    max-width: 380px;
+}
+
+.share-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    line-height: 1;
+    font-size: 24px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all var(--transition-fast);
+}
+
+.share-modal-close:hover {
+    color: var(--primary-red);
+    background: rgba(196, 30, 58, 0.08);
+}
+
+.share-qr-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 22px;
+}
+
+.share-qr {
+    width: 176px;
+    height: 176px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.share-qr img {
+    display: block;
+    width: 160px;
+    height: 160px;
+}
+
+.share-qr-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.share-link-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.share-link-input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 14px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border: 2px solid rgba(196, 30, 58, 0.2);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.share-link-input:focus {
+    outline: none;
+    border-color: var(--primary-red);
+}
+
+.share-link-row .primary-btn.small {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.share-modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.share-modal-actions .secondary-btn.small {
+    flex: 1;
+}
+
+.share-modal-tip {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* 轻提示 toast */
+.share-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%) translateY(20px);
+    max-width: 80%;
+    padding: 12px 24px;
+    font-size: 14px;
+    color: #fff;
+    background: rgba(44, 44, 44, 0.92);
+    border-radius: 50px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-fast);
+    z-index: 2000;
+    pointer-events: none;
+    text-align: center;
+}
+
+.share-toast.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 640px) {
+    .share-modal-content {
+        padding: 32px 24px;
+    }
+
+    .share-modal-actions {
+        flex-direction: column;
+    }
+}
