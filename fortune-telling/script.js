@@ -83,6 +83,7 @@ let apiModule = null;
 let rendererModule = null;
 let pngExportModule = null;
 let dailyTipsModule = null;
+let shareModule = null;
 
 // ========================================
 // DOM 元素
@@ -212,6 +213,12 @@ function initModules() {
         card: elements.dailyTipCard,
         questionInput: elements.userQuestion
     });
+    // 暴露给分享模块使用（let 声明不会自动挂到 window 上）
+    window.dailyTipsModule = dailyTipsModule;
+
+    // 初始化分享模块
+    shareModule = new ShareModule();
+    shareModule.init();
 }
 
 // ========================================
@@ -438,6 +445,12 @@ function bindEvents() {
     
     // 导出长图
     elements.exportPngBtn.addEventListener('click', handleExportPng);
+
+    // 分享给朋友（欢迎页 + 结果页）
+    const shareWelcomeBtn = document.getElementById('share-app-btn-welcome');
+    const shareResultBtn = document.getElementById('share-app-btn');
+    if (shareWelcomeBtn) shareWelcomeBtn.addEventListener('click', () => shareModule && shareModule.open());
+    if (shareResultBtn) shareResultBtn.addEventListener('click', () => shareModule && shareModule.open());
     
     // PC/Mobile 差异化绑定
     if (!isMobileDevice) {
