@@ -84,6 +84,7 @@ let rendererModule = null;
 let pngExportModule = null;
 let dailyTipsModule = null;
 let shareModule = null;
+let appStorage = null;
 
 // ========================================
 // DOM 元素
@@ -216,6 +217,10 @@ function initModules() {
     // 暴露给分享模块使用（let 声明不会自动挂到 window 上）
     window.dailyTipsModule = dailyTipsModule;
 
+    // 初始化本地存储 + 轻身份
+    appStorage = new StorageModule();
+    window.appStorage = appStorage;
+
     // 初始化分享模块
     shareModule = new ShareModule();
     shareModule.init();
@@ -275,7 +280,10 @@ async function handleHexagramComplete(hexagramData) {
     rendererModule.renderHexagramVisual(hexagramData.yaoResults);
     rendererModule.renderHexagramName(hexagramData);
     rendererModule.renderUserQuestion(state.userQuestion);
-    
+
+    // 裂变 & 留存：打卡、编号、埋点、文案、日志
+    onDivinationComplete(hexagramData);
+
     // 检查 API 配置（后端代理或本地 Key）
     const config = apiModule.getConfig();
     
@@ -423,6 +431,169 @@ async function handleExportPng() {
 }
 
 // ========================================
+// 裂变 & 留存
+// ========================================
+
+// 一次起卦完成后：打卡 + 编号 + 埋点 + 文案 + 日志
+function onDivinationComplete(hexagramData) {
+    state.currentHexagramData = hexagramData;
+
+    if (window.Analytics) window.Analytics.track('result_view');
+
+    // 打卡（连续观易天数）
+    let checkin = null;
+    if (appStorage) {
+        checkin = appStorage.checkIn();
+        refreshStreakChip();
+    }
+
+    // 决策日志（本机私密留存）
+    if (appStorage) {
+        appStorage.addJournal({
+            question: state.userQuestion,
+            main: hexagramData.main && hexagramData.main.name,
+            changed: hexagramData.changed && hexagramData.changed.name,
+            advice: ''
+        });
+    }
+
+    // 今日求卦编号（全局计数）
+    updateDailyNumber();
+
+    // 一键分享文案
+    renderShareCopies(hexagramData);
+
+    // 达成新里程碑 → 邀请生成成就卡
+    if (checkin && checkin.newMilestone) {
+        showStreakMilestone(checkin.streak, checkin.newMilestone);
+    }
+}
+
+// 请求全局编号并展示「今日第 N 位求卦者」
+async function updateDailyNumber() {
+    const box = document.getElementById('daily-number');
+    const valueEl = document.getElementById('daily-number-value');
+    if (!box || !valueEl) return;
+    try {
+        const res = await fetch('/api/counter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: appStorage ? appStorage.getDeviceId() : null })
+        });
+        const data = await res.json();
+        if (data && (data.today || data.today === 0) && data.today !== null) {
+            valueEl.textContent = data.today;
+            box.hidden = false;
+        }
+    } catch (e) {
+        // 无后端（如纯静态本地）时静默隐藏
+    }
+}
+
+// 生成结果页的一键分享文案
+function renderShareCopies(hexagramData) {
+    const section = document.getElementById('share-copy-section');
+    const list = document.getElementById('share-copy-list');
+    if (!section || !list) return;
+
+    const name = (hexagramData.main && hexagramData.main.name) || '此卦';
+    const url = shareModule ? shareModule.buildShareUrl({ ref: 'copy' }) : location.href;
+
+    const copies = [
+        `我摇到了「${name}」——今天的卦象有点东西。你的今日一卦是什么？ ${url}`,
+        `用「周易六爻」测了一卦，知几而决，看见变化、理清处境。推荐你也来一卦 👉 ${url}`,
+        `心里有事拿不定主意？我刚摇了一卦挺有启发。免费，静心一试： ${url}`
+    ];
+
+    list.innerHTML = '';
+    copies.forEach((text) => {
+        const item = document.createElement('div');
+        item.className = 'share-copy-item';
+        item.innerHTML = `<span class="copy-text"></span><span class="copy-icon">点击复制</span>`;
+        item.querySelector('.copy-text').textContent = text;
+        item.addEventListener('click', () => {
+            if (shareModule) {
+                shareModule.copyText(text, '文案已复制，去粘贴分享吧');
+                if (window.Analytics) window.Analytics.track('share_click', { cardType: 'copy' });
+            }
+        });
+        list.appendChild(item);
+    });
+
+    section.hidden = false;
+}
+
+// 刷新欢迎页的连续打卡 chip
+function refreshStreakChip() {
+    const chip = document.getElementById('streak-chip');
+    const daysEl = document.getElementById('streak-chip-days');
+    if (!chip || !daysEl || !appStorage) return;
+    const streak = appStorage.getStreak();
+    if (streak > 0) {
+        daysEl.textContent = streak;
+        chip.hidden = false;
+    } else {
+        chip.hidden = true;
+    }
+}
+
+// 展示里程碑弹窗
+function showStreakMilestone(streak, milestone) {
+    const modal = document.getElementById('streak-modal');
+    const title = document.getElementById('streak-modal-title');
+    const desc = document.getElementById('streak-modal-desc');
+    if (!modal) return;
+    const names = { 7: '七日来复', 21: '二十一天养成', 49: '七七四十九' };
+    if (title) title.textContent = `连续观易 ${streak} 天 · ${names[milestone] || milestone + '天'}`;
+    if (desc) desc.textContent = '坚持不易，把这份坚持晒出去吧';
+    modal._milestone = { streak, milestone, name: names[milestone] };
+    modal.classList.add('active');
+}
+
+// 分享打卡成就卡
+function openStreakShare(milestoneInfo) {
+    if (!shareModule || !appStorage) return;
+    const streak = appStorage.getStreak();
+    shareModule.open({
+        cardType: 'streak',
+        ref: 'streak',
+        title: '晒晒我的坚持',
+        hint: '连续观易，日日精进',
+        cardData: {
+            streak,
+            milestone: milestoneInfo ? milestoneInfo.milestone : null,
+            milestoneName: milestoneInfo ? milestoneInfo.name : null
+        }
+    });
+}
+
+// 欢迎页：处理「替朋友求一卦」落地参数
+function handleInviteParams() {
+    let params;
+    try {
+        params = new URLSearchParams(location.search);
+    } catch (e) {
+        return;
+    }
+    const forName = params.get('for');
+    const topic = params.get('topic');
+    if (!forName) return;
+
+    const banner = document.getElementById('invite-banner');
+    const title = document.getElementById('invite-banner-title');
+    const sub = document.getElementById('invite-banner-sub');
+    if (banner) {
+        if (title) title.textContent = `${forName}，有人为你求了一卦`;
+        if (sub) sub.textContent = topic ? `关于「${topic}」，静心片刻，亲自摇一卦` : '静心片刻，亲自摇一卦';
+        banner.hidden = false;
+    }
+    // 预填问题
+    if (topic && elements.userQuestion && !elements.userQuestion.value) {
+        elements.userQuestion.value = `关于${topic}，我近期该如何应对？`;
+    }
+}
+
+// ========================================
 // 事件绑定
 // ========================================
 
@@ -446,11 +617,98 @@ function bindEvents() {
     // 导出长图
     elements.exportPngBtn.addEventListener('click', handleExportPng);
 
-    // 分享给朋友（欢迎页 + 结果页）
+    // 分享给朋友 · 欢迎页（品牌卡，可公开晒）
     const shareWelcomeBtn = document.getElementById('share-app-btn-welcome');
+    if (shareWelcomeBtn) {
+        shareWelcomeBtn.addEventListener('click', () => {
+            if (shareModule) shareModule.open({ cardType: 'brand', ref: 'brand' });
+        });
+    }
+
+    // 分享这一卦 · 结果页（结果卡，卦象符号+卦名，不含所问，偏私密）
     const shareResultBtn = document.getElementById('share-app-btn');
-    if (shareWelcomeBtn) shareWelcomeBtn.addEventListener('click', () => shareModule && shareModule.open());
-    if (shareResultBtn) shareResultBtn.addEventListener('click', () => shareModule && shareModule.open());
+    if (shareResultBtn) {
+        shareResultBtn.addEventListener('click', () => {
+            if (!shareModule) return;
+            const h = state.currentHexagramData;
+            shareModule.open({
+                cardType: 'result',
+                ref: 'result',
+                title: '分享这一卦',
+                hint: '把卦象转给懂的人（不含你的所问）',
+                cardData: h ? {
+                    symbol: h.main && h.main.symbol,
+                    name: h.main && h.main.name,
+                    changedName: h.changed && h.changed.name,
+                    advice: h.main && h.main.nature
+                } : {}
+            });
+        });
+    }
+
+    // 连续打卡 chip → 晒成就卡
+    const streakChip = document.getElementById('streak-chip');
+    if (streakChip) streakChip.addEventListener('click', () => openStreakShare(null));
+
+    // 里程碑弹窗
+    const streakModal = document.getElementById('streak-modal');
+    const streakShareBtn = document.getElementById('streak-share-btn');
+    const streakLaterBtn = document.getElementById('streak-later-btn');
+    const streakCloseBtn = document.getElementById('streak-modal-close');
+    const closeStreakModal = () => streakModal && streakModal.classList.remove('active');
+    if (streakShareBtn) {
+        streakShareBtn.addEventListener('click', () => {
+            const info = streakModal ? streakModal._milestone : null;
+            closeStreakModal();
+            openStreakShare(info);
+        });
+    }
+    if (streakLaterBtn) streakLaterBtn.addEventListener('click', closeStreakModal);
+    if (streakCloseBtn) streakCloseBtn.addEventListener('click', closeStreakModal);
+    if (streakModal) streakModal.addEventListener('click', (e) => { if (e.target === streakModal) closeStreakModal(); });
+
+    // 替朋友求一卦
+    const friendBtn = document.getElementById('friend-invite-btn');
+    const inviteModal = document.getElementById('invite-modal');
+    const inviteName = document.getElementById('invite-name');
+    const inviteTopic = document.getElementById('invite-topic');
+    const inviteGenBtn = document.getElementById('invite-generate-btn');
+    const inviteCancelBtn = document.getElementById('invite-cancel-btn');
+    const inviteCloseBtn = document.getElementById('invite-modal-close');
+    const closeInviteModal = () => inviteModal && inviteModal.classList.remove('active');
+    if (friendBtn) {
+        friendBtn.addEventListener('click', () => {
+            if (inviteModal) inviteModal.classList.add('active');
+            if (inviteName) inviteName.focus();
+        });
+    }
+    if (inviteCancelBtn) inviteCancelBtn.addEventListener('click', closeInviteModal);
+    if (inviteCloseBtn) inviteCloseBtn.addEventListener('click', closeInviteModal);
+    if (inviteModal) inviteModal.addEventListener('click', (e) => { if (e.target === inviteModal) closeInviteModal(); });
+    if (inviteGenBtn) {
+        inviteGenBtn.addEventListener('click', () => {
+            const name = (inviteName && inviteName.value.trim()) || '';
+            const topic = (inviteTopic && inviteTopic.value.trim()) || '';
+            if (!name) {
+                if (inviteName) {
+                    inviteName.focus();
+                    inviteName.classList.add('shake');
+                    setTimeout(() => inviteName.classList.remove('shake'), 500);
+                }
+                return;
+            }
+            const url = shareModule.buildShareUrl({ for: name, topic: topic || undefined, ref: 'invite' });
+            closeInviteModal();
+            shareModule.open({
+                cardType: 'invite',
+                url,
+                ref: 'invite',
+                title: '替朋友求一卦',
+                hint: `把这张「给 ${name} 的卦」发给 TA`,
+                cardData: { name, topic }
+            });
+        });
+    }
     
     // PC/Mobile 差异化绑定
     if (!isMobileDevice) {
@@ -515,7 +773,16 @@ async function init() {
     initModules();
     bindEvents();
     addShakeStyle();
-    
+
+    // 裂变 & 留存初始化：访问计数、来源落地、邀请落地、打卡 chip
+    if (appStorage) appStorage.recordVisit();
+    if (window.Analytics) {
+        window.Analytics.initRef();
+        window.Analytics.trackLandingIfReferred();
+    }
+    handleInviteParams();
+    refreshStreakChip();
+
     // 检查后端代理是否可用
     const proxyAvailable = await apiModule.checkProxyAvailable();
     console.log('后端代理状态:', proxyAvailable ? '可用' : '不可用');

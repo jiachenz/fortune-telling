@@ -10,3 +10,6 @@ server/node_modules/
 # Logs
 *.log
 npm-debug.log*
+
+# Local dev data (counter/analytics fallback store)
+.local-data.json

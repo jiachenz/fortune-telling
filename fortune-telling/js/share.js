@@ -1,13 +1,18 @@
 /**
- * 分享模块 - 把网站分享给朋友
+ * 分享模块 - 把网站/成就/邀请分享给朋友
  * ================================================
- * 提供三种能力：
+ * 能力：
  *   1. 系统分享（移动端 Web Share API）
- *   2. 复制链接（桌面端 / 微信内置浏览器回退）
- *   3. 二维码 + 生成品牌推广图（适合微信聊天里发给好友）
+ *   2. 复制链接 / 复制文案（桌面端 & 微信内置浏览器回退）
+ *   3. 二维码 + 生成分享图（模板化，支持多种卡片）
  *
- * 注意：推广图默认「只推广网站本身」，不包含用户的问题与卦象结果，
- * 以免转发时泄露个人占卜内容（运势偏私密）。
+ * 卡片模板（cardType）：
+ *   - brand  ：品牌卡（含每日一易），可公开晒，不含个人隐私
+ *   - streak ：打卡成就卡「连续观易 X 天」，可公开晒
+ *   - result ：结果卡（卦象符号 + 卦名 + 一句指引），偏私密（一对一）
+ *   - invite ：替朋友求一卦邀请卡「给 XX 的卦 · 关于事业」，私密（一对一）
+ *
+ * 分享链接统一带 ?ref= 便于计算扫码/点击转化。
  */
 
 class ShareModule {
@@ -17,24 +22,47 @@ class ShareModule {
         this.description = '看见变化，理清处境，做出更清醒的选择';
         this.isGeneratingCard = false;
         this.el = {};
+        this._contextUrl = null;
+        this._cardType = 'brand';
+        this._cardData = {};
     }
 
-    /**
-     * 计算要分享的网站地址：
-     * - 线上（http/https）：用当前域名，部署到哪就指到哪
-     * - 本地文件预览（file://）：回退到占位域名，提醒替换
-     */
-    getShareUrl() {
+    // ---------- URL ----------
+
+    _baseUrl() {
         if (location.protocol === 'http:' || location.protocol === 'https:') {
             return location.origin + location.pathname.replace(/index\.html$/, '');
         }
         return 'https://fortune-telling-liuyao.netlify.app/';
     }
 
+    /**
+     * 基于站点地址拼接分享参数（ref / for / topic 等）
+     */
+    buildShareUrl(params = {}) {
+        try {
+            const url = new URL(this._baseUrl());
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v);
+            });
+            return url.toString();
+        } catch (e) {
+            return this._baseUrl();
+        }
+    }
+
+    getShareUrl() {
+        return this._contextUrl || this.buildShareUrl();
+    }
+
+    // ---------- 初始化 ----------
+
     init() {
         this.el = {
             modal: document.getElementById('share-modal'),
             closeBtn: document.getElementById('share-modal-close'),
+            title: document.getElementById('share-modal-title'),
+            hint: document.getElementById('share-modal-hint'),
             qr: document.getElementById('share-qr'),
             linkInput: document.getElementById('share-link-input'),
             copyBtn: document.getElementById('share-copy-btn'),
@@ -52,7 +80,6 @@ class ShareModule {
         this.el.systemBtn.addEventListener('click', () => this.systemShare());
         this.el.cardBtn.addEventListener('click', () => this.generateCard());
 
-        // 桌面端没有系统分享面板，隐藏该按钮
         if (!this.canSystemShare()) {
             this.el.systemBtn.style.display = 'none';
         }
@@ -62,25 +89,39 @@ class ShareModule {
         return typeof navigator.share === 'function';
     }
 
+    _track(name, extra) {
+        if (window.Analytics) window.Analytics.track(name, extra || {});
+    }
+
     /**
-     * 打开分享弹窗：优先直接唤起系统分享面板（移动端体验最好），
-     * 同时弹窗内保留复制链接 / 二维码 / 生成分享图等回退方式。
+     * 打开分享弹窗
+     * @param {object} opts { cardType, url, ref, cardData, title, hint, cardBtnLabel }
      */
-    open() {
+    open(opts = {}) {
+        this._cardType = opts.cardType || 'brand';
+        this._cardData = opts.cardData || {};
+        this._contextUrl = opts.url || this.buildShareUrl({ ref: opts.ref || this._cardType });
+
+        if (this.el.title) this.el.title.textContent = opts.title || '分享给朋友';
+        if (this.el.hint) this.el.hint.textContent = opts.hint || '觉得好用，转给需要的人 · 知几而决';
+        if (this.el.cardBtn) {
+            this.el.cardBtn.textContent = opts.cardBtnLabel || '生成分享图';
+        }
+
         const url = this.getShareUrl();
         if (this.el.linkInput) this.el.linkInput.value = url;
         this.renderQr(url);
 
         if (this.el.modal) this.el.modal.classList.add('active');
+        this._track('share_open', { cardType: this._cardType });
     }
 
     close() {
         if (this.el.modal) this.el.modal.classList.remove('active');
     }
 
-    /**
-     * 把二维码绘制到一个 canvas 元素（同步绘制，html2canvas 截图最稳）
-     */
+    // ---------- 二维码 ----------
+
     makeQrCanvas(text, sizePx) {
         const qr = qrcode(0, 'M');
         qr.addData(text);
@@ -108,9 +149,6 @@ class ShareModule {
         return canvas;
     }
 
-    /**
-     * 生成二维码并渲染到弹窗
-     */
     renderQr(url) {
         if (!this.el.qr) return;
         this.el.qr.innerHTML = '';
@@ -129,11 +167,11 @@ class ShareModule {
         }
     }
 
-    /**
-     * 系统分享（移动端）
-     */
+    // ---------- 分享动作 ----------
+
     async systemShare() {
         const url = this.getShareUrl();
+        this._track('share_click', { cardType: this._cardType });
         if (!this.canSystemShare()) {
             this.copyLink();
             return;
@@ -152,39 +190,38 @@ class ShareModule {
         }
     }
 
-    /**
-     * 复制链接到剪贴板
-     */
-    async copyLink() {
-        const url = this.getShareUrl();
+    async copyText(text, successMsg) {
         let ok = false;
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(url);
+                await navigator.clipboard.writeText(text);
                 ok = true;
             }
-        } catch (e) {
-            ok = false;
-        }
+        } catch (e) { ok = false; }
 
-        if (!ok) {
-            // 回退方案：选中输入框内容执行 execCommand
+        if (!ok && this.el.linkInput) {
             try {
+                const prev = this.el.linkInput.value;
+                this.el.linkInput.value = text;
                 this.el.linkInput.focus();
                 this.el.linkInput.select();
                 ok = document.execCommand('copy');
                 window.getSelection().removeAllRanges();
-            } catch (e) {
-                ok = false;
-            }
+                this.el.linkInput.value = prev;
+            } catch (e) { ok = false; }
         }
 
-        this.toast(ok ? '链接已复制，去微信粘贴给好友吧' : '复制失败，请手动长按复制链接');
+        this.toast(ok ? (successMsg || '已复制') : '复制失败，请手动长按复制');
+        return ok;
     }
 
-    /**
-     * 生成品牌推广图（带二维码），保存 / 分享为图片
-     */
+    async copyLink() {
+        this._track('share_click', { cardType: this._cardType });
+        await this.copyText(this.getShareUrl(), '链接已复制，去微信粘贴给好友吧');
+    }
+
+    // ---------- 生成分享图 ----------
+
     async generateCard() {
         if (this.isGeneratingCard) return;
         this.isGeneratingCard = true;
@@ -195,7 +232,7 @@ class ShareModule {
 
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:600px;z-index:-1;';
-        wrapper.innerHTML = this.generateCardHtml();
+        wrapper.innerHTML = this.buildCardHtml(this._cardType, this._cardData);
         document.body.appendChild(wrapper);
 
         const content = wrapper.querySelector('#share-card-content');
@@ -207,18 +244,19 @@ class ShareModule {
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas 库未加载，请刷新后重试');
             }
-            const scale = 2;
             const canvas = await html2canvas(content, {
-                scale,
+                scale: 2,
                 useCORS: true,
                 backgroundColor: '#fffef5',
                 logging: false
             });
 
-            // 手动把二维码合成到截图上（不依赖 html2canvas 渲染 canvas/img）
             this.compositeQr(canvas, content, qrSlot);
 
-            const fileName = `周易六爻_分享卡片.png`;
+            const fileName = `周易六爻_${this._cardType}.png`;
+            this._track('card_generated', { cardType: this._cardType });
+            this._track('share_click', { cardType: this._cardType });
+
             if (this.isMobile()) {
                 await this.saveMobile(canvas, fileName);
             } else {
@@ -235,18 +273,13 @@ class ShareModule {
     }
 
     /**
-     * 把二维码直接画到 html2canvas 截图结果上（避开 html2canvas 对 canvas/img 的兼容问题）
-     * @param {HTMLCanvasElement} targetCanvas html2canvas 的输出
-     * @param {HTMLElement} content 卡片根节点（#share-card-content）
-     * @param {HTMLElement} slot 二维码占位框（#share-card-qr-slot）
-     * @param {number} scale html2canvas 使用的缩放
+     * 把二维码画到 html2canvas 截图结果上（避开 html2canvas 对 canvas/img 的兼容问题）
      */
     compositeQr(targetCanvas, content, slot) {
         if (!slot || typeof qrcode === 'undefined') return;
         try {
             const cRect = content.getBoundingClientRect();
             const sRect = slot.getBoundingClientRect();
-            // 用输出画布的实际尺寸反推真实缩放，避免 html2canvas 未按 scale 输出时坐标错位
             const scaleX = targetCanvas.width / cRect.width;
             const scaleY = targetCanvas.height / cRect.height;
             const x = (sRect.left - cRect.left) * scaleX;
@@ -256,7 +289,7 @@ class ShareModule {
 
             const qrCanvas = this.makeQrCanvas(this.getShareUrl(), Math.round(Math.min(w, h)));
             const ctx = targetCanvas.getContext('2d');
-            // 复位上下文状态：html2canvas 渲染后可能残留 globalAlpha=0 / 变换，导致后续绘制不可见
+            // 复位上下文：html2canvas 渲染后可能残留 globalAlpha=0 / 变换，导致后续绘制不可见
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = 'source-over';
@@ -268,33 +301,22 @@ class ShareModule {
         }
     }
 
-    /**
-     * 安全读取「每日一易」当天内容（复用页面上的 dailyTipsModule）
-     */
+    // ---------- 每日一易 ----------
+
     getDailyTip() {
         try {
             if (window.dailyTipsModule && typeof window.dailyTipsModule.getTodayTip === 'function') {
                 return window.dailyTipsModule.getTodayTip();
             }
-        } catch (e) { /* 忽略，无每日一易时降级 */ }
+        } catch (e) { /* ignore */ }
         return null;
     }
 
-    /**
-     * 生成「每日一易」区块的 HTML（无数据时返回空串）
-     */
     dailyTipHtml() {
         const tip = this.getDailyTip();
         if (!tip) return '';
         return `
-            <div style="
-                text-align:left;
-                background:#fff8e7;
-                border-left:4px solid #d4af37;
-                border-radius:0 10px 10px 0;
-                padding:16px 18px;
-                margin:0 0 30px;
-            ">
+            <div style="text-align:left;background:#fff8e7;border-left:4px solid #d4af37;border-radius:0 10px 10px 0;padding:16px 18px;margin:0 0 30px;">
                 <div style="font-size:12px;color:#c41e3a;letter-spacing:2px;margin-bottom:10px;">每日一易 · ${tip.theme}</div>
                 <div style="font-size:17px;color:#2c2c2c;line-height:1.7;">“${tip.quote}”</div>
                 <div style="font-size:12px;color:#999;text-align:right;margin-top:6px;">—— ${tip.source}</div>
@@ -303,48 +325,104 @@ class ShareModule {
         `;
     }
 
-    generateCardHtml() {
-        const url = this.getShareUrl();
+    // ---------- 卡片模板 ----------
 
+    escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    /**
+     * 卡片外壳：统一宽度/背景/顶部装饰/底部标语 + 二维码槽位
+     */
+    _cardShell(innerHtml, footerText) {
+        const url = this.getShareUrl();
         return `
             <div id="share-card-content" style="
                 font-family:'Noto Serif SC','SimSun',serif;
-                width:600px;
-                box-sizing:border-box;
-                padding:56px 48px;
+                width:600px;box-sizing:border-box;padding:56px 48px;
                 background:linear-gradient(160deg,#fffef5 0%,#fbf3df 100%);
-                color:#2c2c2c;
-                text-align:center;
-            ">
+                color:#2c2c2c;text-align:center;">
                 <div style="height:4px;width:64px;background:#c41e3a;border-radius:2px;margin:0 auto 32px;"></div>
-
-                <div style="font-size:72px;line-height:1;color:#c41e3a;margin-bottom:16px;">☯</div>
-                <h1 style="font-size:40px;letter-spacing:10px;color:#c41e3a;margin:0 0 12px;">周易六爻</h1>
-                <p style="font-size:20px;letter-spacing:6px;color:#d4af37;margin:0 0 8px;">知 · 几 · 而 · 决</p>
-                <p style="font-size:15px;color:#777;margin:0 0 30px;line-height:1.8;">${this.description}</p>
-
-                ${this.dailyTipHtml()}
-
-                <div style="
-                    display:inline-block;
-                    padding:20px;
-                    background:#fff;
-                    border-radius:16px;
-                    box-shadow:0 6px 20px rgba(0,0,0,0.08);
-                    border:1px solid rgba(212,175,55,0.35);
-                ">
+                ${innerHtml}
+                <div style="display:inline-block;padding:20px;background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,0.08);border:1px solid rgba(212,175,55,0.35);">
                     <div id="share-card-qr-slot" style="width:180px;height:180px;margin:0 auto;"></div>
                 </div>
                 <p style="font-size:14px;color:#c41e3a;margin:18px 0 4px;font-weight:600;">微信扫一扫 · 长按识别</p>
-                <p style="font-size:12px;color:#aaa;margin:0;word-break:break-all;">${url}</p>
-
+                <p style="font-size:12px;color:#aaa;margin:0;word-break:break-all;">${this.escapeHtml(url)}</p>
                 <div style="height:1px;background:#d4af37;opacity:0.5;margin:36px 0 16px;"></div>
-                <p style="font-size:12px;color:#bbb;margin:0;">免费在线摇卦 · AI 智能解卦 · 卦象仅供参考</p>
+                <p style="font-size:12px;color:#bbb;margin:0;">${footerText || '免费在线摇卦 · AI 智能解卦 · 卦象仅供参考'}</p>
             </div>
         `;
     }
 
-    // ---------- 图片保存工具（与 png-export 保持一致的体验）----------
+    buildCardHtml(type, data = {}) {
+        switch (type) {
+            case 'streak': return this._cardStreak(data);
+            case 'invite': return this._cardInvite(data);
+            case 'result': return this._cardResult(data);
+            case 'brand':
+            default: return this._cardBrand();
+        }
+    }
+
+    _cardBrand() {
+        const inner = `
+            <div style="font-size:72px;line-height:1;color:#c41e3a;margin-bottom:16px;">☯</div>
+            <h1 style="font-size:40px;letter-spacing:10px;color:#c41e3a;margin:0 0 12px;">周易六爻</h1>
+            <p style="font-size:20px;letter-spacing:6px;color:#d4af37;margin:0 0 8px;">知 · 几 · 而 · 决</p>
+            <p style="font-size:15px;color:#777;margin:0 0 30px;line-height:1.8;">${this.description}</p>
+            ${this.dailyTipHtml()}
+        `;
+        return this._cardShell(inner);
+    }
+
+    _cardStreak(data) {
+        const days = Number(data.streak) || 0;
+        const label = data.milestone
+            ? `已连续观易 ${days} 天 · 解锁「${data.milestoneName || days + '天'}」`
+            : `已连续观易 ${days} 天`;
+        const inner = `
+            <div style="font-size:64px;line-height:1;margin-bottom:8px;">🔥</div>
+            <p style="font-size:16px;letter-spacing:4px;color:#d4af37;margin:0 0 6px;">观 易 打 卡</p>
+            <div style="font-size:88px;font-weight:700;color:#c41e3a;line-height:1;margin:8px 0;">${days}</div>
+            <p style="font-size:20px;color:#2c2c2c;margin:0 0 8px;">${this.escapeHtml(label)}</p>
+            <p style="font-size:14px;color:#888;margin:0 0 30px;line-height:1.8;">日省一卦，知几而决</p>
+        `;
+        return this._cardShell(inner, '连续观易 · 日日精进 · 与我一起知几而决');
+    }
+
+    _cardInvite(data) {
+        const name = this.escapeHtml(data.name || '你');
+        const topic = this.escapeHtml(data.topic || '');
+        const topicLine = topic ? `关于「${topic}」` : '一桩心事';
+        const inner = `
+            <div style="font-size:60px;line-height:1;color:#c41e3a;margin-bottom:12px;">☯</div>
+            <p style="font-size:15px;letter-spacing:3px;color:#d4af37;margin:0 0 14px;">有人为你求了一卦</p>
+            <h1 style="font-size:34px;color:#c41e3a;margin:0 0 10px;">给 ${name} 的卦</h1>
+            <p style="font-size:17px;color:#2c2c2c;margin:0 0 8px;">${topicLine}</p>
+            <p style="font-size:14px;color:#888;margin:0 0 30px;line-height:1.8;">扫码亲自摇一卦，看看天机如何指引</p>
+        `;
+        return this._cardShell(inner, '心诚则灵 · 亲自起卦 · 卦象仅供参考');
+    }
+
+    _cardResult(data) {
+        const symbol = this.escapeHtml(data.symbol || '☯');
+        const name = this.escapeHtml(data.name || '');
+        const changed = data.changedName ? ` → ${this.escapeHtml(data.changedName)}` : '';
+        const question = data.question ? this.escapeHtml(data.question) : '';
+        const advice = data.advice ? this.escapeHtml(data.advice) : '';
+        const inner = `
+            <div style="font-size:56px;letter-spacing:6px;line-height:1;color:#c41e3a;margin-bottom:14px;">${symbol}</div>
+            <h1 style="font-size:32px;color:#c41e3a;margin:0 0 10px;">${name}${changed}</h1>
+            ${question ? `<p style="font-size:15px;color:#777;margin:0 0 16px;">所问：${question}</p>` : ''}
+            ${advice ? `<div style="text-align:left;background:#fff8e7;border-left:4px solid #d4af37;border-radius:0 10px 10px 0;padding:16px 18px;margin:0 0 30px;font-size:14px;color:#555;line-height:1.8;">${advice}</div>` : '<div style="margin-bottom:20px;"></div>'}
+        `;
+        return this._cardShell(inner, '扫码亲测你的一卦 · 卦象仅供参考');
+    }
+
+    // ---------- 图片保存工具 ----------
 
     isMobile() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)

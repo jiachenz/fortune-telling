@@ -8,6 +8,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,72 @@ app.use(express.json());
 
 // 静态文件服务 - 提供前端页面
 app.use(express.static(path.join(__dirname, '..')));
+
+// ==========================================
+// 本地开发用：计数 / 埋点（线上由 Netlify Functions + Blobs 承担）
+// 用一个本地 JSON 文件持久化，方便 `node index.js` 本地联调
+// ==========================================
+const LOCAL_DATA_FILE = path.join(__dirname, '.local-data.json');
+
+function readLocalData() {
+    try {
+        return JSON.parse(fs.readFileSync(LOCAL_DATA_FILE, 'utf-8'));
+    } catch (e) {
+        return { counters: {}, analytics: {} };
+    }
+}
+
+function writeLocalData(data) {
+    try {
+        fs.writeFileSync(LOCAL_DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error('写入本地数据失败:', e.message);
+    }
+}
+
+function shanghaiDate() {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
+}
+
+// 求卦计数（本地版）
+app.all('/api/counter', (req, res) => {
+    const data = readLocalData();
+    const dayKey = `divinations:${shanghaiDate()}`;
+    data.counters = data.counters || {};
+
+    if (req.method === 'POST') {
+        data.counters[dayKey] = (data.counters[dayKey] || 0) + 1;
+        data.counters['divinations:total'] = (data.counters['divinations:total'] || 0) + 1;
+        writeLocalData(data);
+    }
+
+    res.json({
+        today: data.counters[dayKey] || 0,
+        total: data.counters['divinations:total'] || 0
+    });
+});
+
+// 轻量埋点（本地版）
+app.post('/api/track', (req, res) => {
+    const { event, cardType, ref } = req.body || {};
+    const ALLOWED = ['result_view', 'share_open', 'share_click', 'card_generated', 'landing'];
+    if (event && ALLOWED.includes(event)) {
+        const data = readLocalData();
+        data.analytics = data.analytics || {};
+        const day = shanghaiDate();
+        const keys = [`ev:${event}:total`, `ev:${event}:${day}`];
+        if (cardType) keys.push(`ev:${event}:card:${cardType}:total`);
+        if (ref) keys.push(`ev:${event}:ref:${ref}:total`);
+        keys.forEach((k) => { data.analytics[k] = (data.analytics[k] || 0) + 1; });
+        writeLocalData(data);
+    }
+    res.status(204).end();
+});
 
 // API 配置
 const API_CONFIG = {

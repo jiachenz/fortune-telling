@@ -1591,3 +1591,151 @@ body {
         flex-direction: column;
     }
 }
+
+/* ========================================
+   裂变 & 留存 一期
+   ======================================== */
+
+/* hidden 属性必须优先于下方的 display 规则（否则 flex/inline-flex 会覆盖它） */
+[hidden] {
+    display: none !important;
+}
+
+/* 欢迎页入口组（打卡 chip + 分享） */
+.welcome-entries {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.streak-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--primary-red);
+    background: rgba(196, 30, 58, 0.08);
+    border: 1px solid rgba(196, 30, 58, 0.25);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.streak-chip:hover {
+    background: rgba(196, 30, 58, 0.14);
+    transform: translateY(-1px);
+}
+
+.streak-chip b {
+    font-size: 16px;
+}
+
+/* 邀请横幅（好友求卦落地） */
+.invite-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, rgba(196, 30, 58, 0.1), rgba(212, 175, 55, 0.12));
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 14px;
+    text-align: left;
+}
+
+.invite-banner-icon {
+    font-size: 28px;
+    color: var(--primary-red);
+    flex-shrink: 0;
+}
+
+.invite-banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.invite-banner-text strong {
+    font-size: 16px;
+    color: var(--primary-red);
+}
+
+.invite-banner-text span {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* 今日求卦编号 */
+.daily-number {
+    text-align: center;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin: 0 0 12px;
+}
+
+.daily-number span {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-red);
+}
+
+/* 一键文案 */
+.share-copy-section {
+    margin: 20px 0 8px;
+    padding: 18px;
+    background: rgba(212, 175, 55, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 12px;
+}
+
+.share-copy-title {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    text-align: center;
+}
+
+.share-copy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.share-copy-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid rgba(196, 30, 58, 0.15);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+}
+
+.share-copy-item:hover {
+    border-color: var(--primary-red);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.share-copy-item .copy-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+.share-copy-item .copy-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--gold);
+    white-space: nowrap;
+}
