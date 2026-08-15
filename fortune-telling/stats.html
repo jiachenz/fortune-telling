@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>运营看板 · 周易六爻</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --red: #c41e3a;
+            --gold: #d4af37;
+            --cream: #fffef5;
+            --ink: #2c2c2c;
+            --muted: #777;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Noto Serif SC", "PingFang SC", serif;
+            background: linear-gradient(160deg, #fffef5 0%, #fbf3df 100%);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+        h1 { font-size: 28px; color: var(--red); letter-spacing: 4px; margin: 0 0 6px; }
+        .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+        .gate, .error {
+            max-width: 420px;
+            margin: 80px auto;
+            background: #fff;
+            padding: 32px;
+            border-radius: 16px;
+            border: 1px solid rgba(212,175,55,.35);
+            box-shadow: 0 8px 24px rgba(0,0,0,.06);
+            text-align: center;
+        }
+        .gate h2 { color: var(--red); margin: 0 0 8px; }
+        .gate p { color: var(--muted); font-size: 14px; }
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid rgba(196,30,58,.2);
+            border-radius: 8px;
+            font-size: 15px;
+            margin: 12px 0 16px;
+        }
+        button {
+            background: linear-gradient(135deg, var(--red), #8b1428);
+            color: #fffef5;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 28px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .kpi {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid rgba(212,175,55,.3);
+        }
+        .kpi .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+        .kpi .value { font-size: 28px; color: var(--red); font-weight: 700; margin-top: 4px; }
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(212,175,55,.3);
+        }
+        .card h3 { margin: 0 0 16px; font-size: 16px; color: var(--red); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+        .ghost {
+            background: transparent;
+            color: var(--gold);
+            border: 1px solid var(--gold);
+        }
+        canvas { max-height: 320px; }
+        .empty { color: var(--muted); text-align: center; padding: 24px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div id="gate" class="gate">
+            <h2>运营看板</h2>
+            <p>输入 STATS_TOKEN 查看聚合指标。本地未配置 token 时可直接进入。</p>
+            <input id="token-input" type="password" placeholder="STATS_TOKEN" autocomplete="off">
+            <button id="unlock-btn" type="button">进入</button>
+            <p id="gate-error" style="color:#c41e3a;display:none;margin-top:12px;">token 不正确</p>
+        </div>
+
+        <div id="dash" hidden>
+            <div class="toolbar">
+                <div>
+                    <h1>运营看板</h1>
+                    <p class="sub" id="generated-at">聚合自 Netlify Blobs / 本地计数</p>
+                </div>
+                <button type="button" class="ghost" id="logout-btn">退出</button>
+            </div>
+            <div class="kpis" id="kpis"></div>
+            <div class="charts">
+                <div class="card">
+                    <h3>近 30 日趋势</h3>
+                    <canvas id="trend-chart"></canvas>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>分享卡片类型</h3>
+                        <canvas id="card-chart"></canvas>
+                        <p class="empty" id="card-empty" hidden>暂无卡片数据</p>
+                    </div>
+                    <div class="card">
+                        <h3>分享来源 ref</h3>
+                        <canvas id="ref-chart"></canvas>
+                        <p class="empty" id="ref-empty" hidden>暂无来源数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOKEN_KEY = 'fortune_stats_token';
+        let charts = [];
+
+        function destroyCharts() {
+            charts.forEach((c) => c.destroy());
+            charts = [];
+        }
+
+        async function fetchStats(token) {
+            const headers = {};
+            let url = '/api/stats';
+            if (token) {
+                headers.Authorization = 'Bearer ' + token;
+                url += '?token=' + encodeURIComponent(token);
+            }
+            const res = await fetch(url, { headers, cache: 'no-store' });
+            if (res.status === 401) throw new Error('unauthorized');
+            if (!res.ok) throw new Error('fetch failed');
+            return res.json();
+        }
+
+        function renderKpis(data) {
+            const items = [
+                ['今日求卦', data.divinations.today],
+                ['累计求卦', data.divinations.total],
+                ['结果页浏览', data.events.result_view || 0],
+                ['分享点击', data.events.share_click || 0],
+                ['分享落地', data.events.landing || 0],
+                ['分享率', data.kpis.shareRateLabel],
+                ['转化率', data.kpis.conversionRateLabel],
+                ['K 因子', data.kpis.kFactorLabel]
+            ];
+            document.getElementById('kpis').innerHTML = items.map(([label, value]) =>
+                `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`
+            ).join('');
+        }
+
+        function renderTrend(series) {
+            const ctx = document.getElementById('trend-chart');
+            charts.push(new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: series.map((s) => s.date.slice(5)),
+                    datasets: [
+                        { label: '求卦', data: series.map((s) => s.divinations), borderColor: '#c41e3a', tension: .3 },
+                        { label: '结果页', data: series.map((s) => s.result_view), borderColor: '#d4af37', tension: .3 },
+                        { label: '分享点击', data: series.map((s) => s.share_click), borderColor: '#2c2c2c', tension: .3 },
+                        { label: '落地', data: series.map((s) => s.landing), borderColor: '#00a86b', tension: .3 }
+                    ]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+            }));
+        }
+
+        function renderPie(id, emptyId, obj) {
+            const keys = Object.keys(obj || {});
+            const empty = document.getElementById(emptyId);
+            const canvas = document.getElementById(id);
+            if (!keys.length) {
+                empty.hidden = false;
+                canvas.style.display = 'none';
+                return;
+            }
+            empty.hidden = true;
+            canvas.style.display = 'block';
+            charts.push(new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    labels: keys,
+                    datasets: [{ data: keys.map((k) => obj[k]), backgroundColor: ['#c41e3a', '#d4af37', '#2c2c2c', '#00a86b', '#e67e22', '#a0c4ff'] }]
+                },
+                options: { plugins: { legend: { position: 'bottom' } } }
+            }));
+        }
+
+        async function showDash(token) {
+            const data = await fetchStats(token);
+            document.getElementById('gate').hidden = true;
+            document.getElementById('dash').hidden = false;
+            document.getElementById('generated-at').textContent =
+                '生成于 ' + new Date(data.generatedAt).toLocaleString('zh-CN') + ' · 近 30 日';
+            destroyCharts();
+            renderKpis(data);
+            renderTrend(data.series || []);
+            renderPie('card-chart', 'card-empty', data.cards);
+            renderPie('ref-chart', 'ref-empty', data.refs);
+        }
+
+        async function tryUnlock(token, silent401) {
+            const err = document.getElementById('gate-error');
+            err.style.display = 'none';
+            err.textContent = 'token 不正确';
+            try {
+                await showDash(token);
+                if (token) sessionStorage.setItem(TOKEN_KEY, token);
+            } catch (e) {
+                if (e.message === 'unauthorized') {
+                    sessionStorage.removeItem(TOKEN_KEY);
+                    if (!silent401) err.style.display = 'block';
+                } else {
+                    err.textContent = '无法读取统计，请确认已配置 STATS_TOKEN 或本地服务已启动';
+                    err.style.display = 'block';
+                }
+            }
+        }
+
+        document.getElementById('unlock-btn').addEventListener('click', () => {
+            tryUnlock(document.getElementById('token-input').value.trim(), false);
+        });
+        document.getElementById('token-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('unlock-btn').click();
+        });
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            sessionStorage.removeItem(TOKEN_KEY);
+            location.reload();
+        });
+
+        const saved = sessionStorage.getItem(TOKEN_KEY);
+        if (saved) tryUnlock(saved, false);
+        else tryUnlock('', true);
+    </script>
+</body>
+</html>

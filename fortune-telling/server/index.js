@@ -86,6 +86,25 @@ app.post('/api/track', (req, res) => {
     res.status(204).end();
 });
 
+// 聚合指标（本地版）。未配置 STATS_TOKEN 时本地放行，线上必须带 token。
+app.get('/api/stats', (req, res) => {
+    const expected = process.env.STATS_TOKEN;
+    if (expected) {
+        const auth = req.headers.authorization || '';
+        const headerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+        const queryToken = (req.query.token || '').trim();
+        if (headerToken !== expected && queryToken !== expected) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+    }
+
+    const data = readLocalData();
+    const map = Object.assign({}, data.counters || {}, data.analytics || {});
+    const { aggregateFromMap } = require('../netlify/lib/aggregate-stats');
+    res.set('Cache-Control', 'no-store');
+    res.json(aggregateFromMap(map));
+});
+
 // API 配置
 const API_CONFIG = {
     apiKey: process.env.API_KEY,
