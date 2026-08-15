@@ -472,8 +472,9 @@ function onDivinationComplete(hexagramData) {
 // 请求全局编号并展示「今日第 N 位求卦者」
 async function updateDailyNumber() {
     const box = document.getElementById('daily-number');
-    const valueEl = document.getElementById('daily-number-value');
-    if (!box || !valueEl) return;
+    const rankEl = document.getElementById('daily-rank-value');
+    const timesEl = document.getElementById('daily-times-value');
+    if (!box || !rankEl || !timesEl) return;
     try {
         const res = await fetch('/api/counter', {
             method: 'POST',
@@ -481,8 +482,11 @@ async function updateDailyNumber() {
             body: JSON.stringify({ deviceId: appStorage ? appStorage.getDeviceId() : null })
         });
         const data = await res.json();
-        if (data && (data.today || data.today === 0) && data.today !== null) {
-            valueEl.textContent = data.today;
+        const rank = data.rank != null ? data.rank : data.today;
+        const times = data.times;
+        if (rank != null) {
+            rankEl.textContent = rank;
+            timesEl.textContent = times != null ? times : '—';
             box.hidden = false;
         }
     } catch (e) {

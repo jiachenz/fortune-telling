@@ -51,21 +51,46 @@ function shanghaiDate() {
     }).format(new Date());
 }
 
-// 求卦计数（本地版）
+// 求卦计数（本地版）：今日第 X 位 + 本设备第 Y 次
 app.all('/api/counter', (req, res) => {
     const data = readLocalData();
     const dayKey = `divinations:${shanghaiDate()}`;
     data.counters = data.counters || {};
+    const { recordDivination, dayCount } = require('../netlify/lib/divination-counter');
+
+    let rank = null;
+    let times = null;
+    let rawDay = data.counters[dayKey];
 
     if (req.method === 'POST') {
-        data.counters[dayKey] = (data.counters[dayKey] || 0) + 1;
-        data.counters['divinations:total'] = (data.counters['divinations:total'] || 0) + 1;
+        const deviceId = (req.body && req.body.deviceId) || null;
+        const result = recordDivination(rawDay, deviceId);
+        rawDay = result.day;
+        rank = result.rank;
+        times = result.times;
+        data.counters[dayKey] = rawDay;
+        const totalRaw = data.counters['divinations:total'];
+        const totalCount = (typeof totalRaw === 'number' ? totalRaw : (totalRaw && totalRaw.count) || 0) + 1;
+        data.counters['divinations:total'] = totalCount;
         writeLocalData(data);
+        return res.json({
+            rank,
+            times,
+            count: dayCount(rawDay),
+            unique: rawDay.unique || 0,
+            today: rank,
+            total: totalCount
+        });
     }
 
+    const totalRaw = data.counters['divinations:total'];
     res.json({
-        today: data.counters[dayKey] || 0,
-        total: data.counters['divinations:total'] || 0
+        rank: null,
+        times: null,
+        count: dayCount(rawDay),
+        unique: (rawDay && rawDay.unique) || 0,
+        today: null,
+        total: typeof totalRaw === 'number' ? totalRaw : (totalRaw && totalRaw.count) || 0
     });
 });
 
@@ -98,7 +123,11 @@ app.get('/api/stats', (req, res) => {
     }
 
     const data = readLocalData();
-    const map = Object.assign({}, data.counters || {}, data.analytics || {});
+    const { dayCount } = require('../netlify/lib/divination-counter');
+    const map = Object.assign({}, data.analytics || {});
+    Object.entries(data.counters || {}).forEach(([key, value]) => {
+        map[key] = (value && typeof value === 'object') ? dayCount(value) : value;
+    });
     const { aggregateFromMap } = require('../netlify/lib/aggregate-stats');
     res.set('Cache-Control', 'no-store');
     res.json(aggregateFromMap(map));
