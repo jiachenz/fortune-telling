@@ -213,7 +213,9 @@
             document.getElementById('gate').hidden = true;
             document.getElementById('dash').hidden = false;
             document.getElementById('generated-at').textContent =
-                '生成于 ' + new Date(data.generatedAt).toLocaleString('zh-CN') + ' · 近 30 日';
+                '生成于 ' + new Date(data.generatedAt).toLocaleString('zh-CN')
+                + ' · 近 30 日'
+                + (data.meta ? ` · 读取 ${data.meta.counterKeys + data.meta.analyticsKeys} 条` : '');
             destroyCharts();
             renderKpis(data);
             renderTrend(data.series || []);

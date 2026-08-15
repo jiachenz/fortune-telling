@@ -39,20 +39,17 @@ function authorized(event) {
 
 async function listAll(store) {
     const map = {};
-    let cursor;
-    do {
-        const page = await store.list({ paginate: true, cursor });
-        const blobs = page.blobs || [];
-        for (const blob of blobs) {
-            const value = await store.get(blob.key, { type: 'json' });
-            if (value && typeof value === 'object' && typeof value.count === 'number') {
-                map[blob.key] = value.count;
-            } else if (typeof value === 'number') {
-                map[blob.key] = value;
-            }
+    // 默认 list() 会自动翻页并返回 { blobs: [{ key, etag }] }
+    // paginate:true 会变成 AsyncIterator，不能当普通对象用
+    const { blobs } = await store.list();
+    for (const blob of blobs || []) {
+        const value = await store.get(blob.key, { type: 'json' });
+        if (value && typeof value === 'object' && typeof value.count === 'number') {
+            map[blob.key] = value.count;
+        } else if (typeof value === 'number') {
+            map[blob.key] = value;
         }
-        cursor = page.next_cursor || page.nextCursor;
-    } while (cursor);
+    }
     return map;
 }
 
@@ -76,10 +73,15 @@ exports.handler = async (event) => {
             listAll(analytics)
         ]);
         const map = Object.assign({}, counterMap, analyticsMap);
+        const payload = aggregateFromMap(map);
+        payload.meta = {
+            counterKeys: Object.keys(counterMap).length,
+            analyticsKeys: Object.keys(analyticsMap).length
+        };
         return {
             statusCode: 200,
             headers: cors,
-            body: JSON.stringify(aggregateFromMap(map))
+            body: JSON.stringify(payload)
         };
     } catch (e) {
         return {
