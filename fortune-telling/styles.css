@@ -1596,6 +1596,11 @@ body {
    裂变 & 留存 一期
    ======================================== */
 
+/* hidden 属性必须优先于下方的 display 规则（否则 flex/inline-flex 会覆盖它） */
+[hidden] {
+    display: none !important;
+}
+
 /* 欢迎页入口组（打卡 chip + 分享） */
 .welcome-entries {
     display: flex;
