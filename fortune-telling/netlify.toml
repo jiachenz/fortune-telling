@@ -33,3 +33,4 @@
 # API_KEY = "你的API密钥"
 # API_BASE = "https://api.siliconflow.cn/v1"
 # MODEL_NAME = "Pro/zai-org/GLM-4.7"
+# STATS_TOKEN = "运营看板密钥，访问 /stats.html 时使用"
