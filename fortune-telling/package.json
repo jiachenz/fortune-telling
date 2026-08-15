@@ -9,5 +9,8 @@
   },
   "keywords": ["周易", "六爻", "占卜", "算命"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@netlify/blobs": "^10.0.0"
+  }
 }
