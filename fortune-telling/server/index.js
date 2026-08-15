@@ -92,8 +92,7 @@ app.get('/api/stats', (req, res) => {
     if (expected) {
         const auth = req.headers.authorization || '';
         const headerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
-        const queryToken = (req.query.token || '').trim();
-        if (headerToken !== expected && queryToken !== expected) {
+        if (headerToken !== expected) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
     }

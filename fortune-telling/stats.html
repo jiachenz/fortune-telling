@@ -143,12 +143,8 @@
 
         async function fetchStats(token) {
             const headers = {};
-            let url = '/api/stats';
-            if (token) {
-                headers.Authorization = 'Bearer ' + token;
-                url += '?token=' + encodeURIComponent(token);
-            }
-            const res = await fetch(url, { headers, cache: 'no-store' });
+            if (token) headers.Authorization = 'Bearer ' + token;
+            const res = await fetch('/api/stats', { headers, cache: 'no-store' });
             if (res.status === 401) throw new Error('unauthorized');
             if (!res.ok) throw new Error('fetch failed');
             return res.json();

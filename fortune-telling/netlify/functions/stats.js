@@ -2,10 +2,10 @@
  * 聚合指标接口（仅持有 STATS_TOKEN 的人可看）
  * GET /api/stats
  *   Header: Authorization: Bearer <token>
- *   或 query: ?token=<token>
  *
  * 线上：读 Netlify Blobs（counters + analytics）
  * 未配置 STATS_TOKEN 时一律 401，避免数据裸奔
+ * 不接受 query token，避免密钥出现在 URL / 访问日志里
  */
 
 const { getStore, connectLambda } = require('@netlify/blobs');
@@ -22,12 +22,7 @@ function extractToken(event) {
     const header = event.headers || {};
     const auth = header.authorization || header.Authorization || '';
     if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
-    try {
-        const qs = event.queryStringParameters || {};
-        return (qs.token || '').trim();
-    } catch (e) {
-        return '';
-    }
+    return '';
 }
 
 function authorized(event) {
