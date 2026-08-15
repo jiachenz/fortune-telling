@@ -1,13 +1,16 @@
 /**
  * 求卦计数接口
- * GET  /api/counter  -> 读取「今日/累计」求卦数（不自增）
- * POST /api/counter  -> 自增并返回最新「今日/累计」数
- *
- * 存储：Netlify Blobs（免费版可用，无需数据库）。
- * 出错时返回 200 + null，前端优雅降级（不显示编号即可）。
+ * GET  /api/counter  -> 读取今日总次数 / 累计（不自增）
+ * POST /api/counter  body: { deviceId }
+ *   -> 自增，并返回：
+ *      rank  今日第几位（按 deviceId 去重，同一设备当天保持同一编号）
+ *      times 该设备今日第几次求卦
+ *      count 今日求卦总次数
+ *      total 累计求卦总次数
  */
 
 const { getStore, connectLambda } = require('@netlify/blobs');
+const { recordDivination, dayCount } = require('../lib/divination-counter');
 
 function todayKey() {
     const d = new Intl.DateTimeFormat('en-CA', {
@@ -34,31 +37,49 @@ exports.handler = async (event) => {
     }
 
     try {
-        // Lambda 兼容格式必须先注入上下文，否则会报未配置 siteID/token
         connectLambda(event);
         const store = getStore('counters');
         const dayKey = todayKey();
 
-        let today = (await store.get(dayKey, { type: 'json' })) || { count: 0 };
+        let rawDay = (await store.get(dayKey, { type: 'json' })) || { count: 0 };
         let total = (await store.get(TOTAL_KEY, { type: 'json' })) || { count: 0 };
 
+        let rank = null;
+        let times = null;
+
         if (event.httpMethod === 'POST') {
-            today = { count: (today.count || 0) + 1 };
+            let deviceId = null;
+            try {
+                const body = JSON.parse(event.body || '{}');
+                deviceId = body.deviceId || null;
+            } catch (e) { /* ignore */ }
+
+            const result = recordDivination(rawDay, deviceId);
+            rawDay = result.day;
+            rank = result.rank;
+            times = result.times;
             total = { count: (total.count || 0) + 1 };
-            await store.setJSON(dayKey, today);
+            await store.setJSON(dayKey, rawDay);
             await store.setJSON(TOTAL_KEY, total);
         }
 
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ today: today.count, total: total.count })
+            body: JSON.stringify({
+                rank,
+                times,
+                count: dayCount(rawDay),
+                unique: (rawDay && rawDay.unique) || 0,
+                today: rank,
+                total: total.count || 0
+            })
         };
     } catch (e) {
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ today: null, total: null, error: e.message })
+            body: JSON.stringify({ today: null, rank: null, times: null, total: null, error: e.message })
         };
     }
 };
