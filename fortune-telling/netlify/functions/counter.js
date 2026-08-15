@@ -7,7 +7,7 @@
  * 出错时返回 200 + null，前端优雅降级（不显示编号即可）。
  */
 
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 function todayKey() {
     const d = new Intl.DateTimeFormat('en-CA', {
@@ -34,6 +34,8 @@ exports.handler = async (event) => {
     }
 
     try {
+        // Lambda 兼容格式必须先注入上下文，否则会报未配置 siteID/token
+        connectLambda(event);
         const store = getStore('counters');
         const dayKey = todayKey();
 

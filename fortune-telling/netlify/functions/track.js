@@ -7,7 +7,7 @@
  * 始终返回 204，前端 fire-and-forget，不阻塞交互。
  */
 
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 const ALLOWED_EVENTS = new Set([
     'result_view',
@@ -50,6 +50,8 @@ exports.handler = async (event) => {
             return { statusCode: 204, headers };
         }
 
+        // Lambda 兼容格式必须先注入上下文，否则会报未配置 siteID/token
+        connectLambda(event);
         const store = getStore('analytics');
         const day = today();
         const keys = [`ev:${name}:total`, `ev:${name}:${day}`];

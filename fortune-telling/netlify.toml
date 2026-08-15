@@ -9,6 +9,8 @@
 [functions]
   # 使用 esbuild 打包
   node_bundler = "esbuild"
+  # 必须外置，否则打包后拿不到 Blobs 运行时上下文（siteID/token）
+  external_node_modules = ["@netlify/blobs"]
 
 # 指定 Node.js 18（内置 fetch API）
 [build.environment]
