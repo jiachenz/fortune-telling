@@ -225,7 +225,7 @@
                     </div>
                 </div>
                 <div class="share-copy-section" id="share-copy-section" hidden>
-                    <p class="share-copy-title">一键复制文案，转给需要的人</p>
+                    <p class="share-copy-title">觉得有启发？把这份指引转给需要的人 · 点一下即可复制</p>
                     <div class="share-copy-list" id="share-copy-list"></div>
                 </div>
 
@@ -245,6 +245,14 @@
                 </div>
             </div>
         </section>
+
+        <!-- 贴底浮动分享条：读卦时始终吸附在视口底部（放在 .page 之外，避免被页面 transform 影响 fixed 定位）-->
+        <div id="share-sticky-bar" class="share-sticky-bar" hidden>
+            <span class="share-sticky-text">觉得准？分享给正在纠结的朋友</span>
+            <button id="share-sticky-btn" type="button" class="share-sticky-btn">
+                <span aria-hidden="true">◈</span> 分享给朋友
+            </button>
+        </div>
 
         <!-- API配置弹窗 -->
         <div id="api-modal" class="modal">

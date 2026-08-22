@@ -241,7 +241,11 @@ function showPage(pageName) {
             targetPage.classList.add('active');
         }, 50);
     }
-    
+
+    // 贴底浮动分享条只在结果页出现
+    const stickyBar = document.getElementById('share-sticky-bar');
+    if (stickyBar) stickyBar.hidden = (pageName !== 'result');
+
     state.currentPage = pageName;
 }
 
@@ -494,6 +498,24 @@ async function updateDailyNumber() {
     }
 }
 
+// 打开「分享这一卦」（结果卡，卦象符号+卦名，不含所问）——供结果页按钮与浮动条复用
+function openResultShare() {
+    if (!shareModule) return;
+    const h = state.currentHexagramData;
+    shareModule.open({
+        cardType: 'result',
+        ref: 'result',
+        title: '分享这一卦',
+        hint: '把卦象转给懂的人（不含你的所问）',
+        cardData: h ? {
+            symbol: h.main && h.main.symbol,
+            name: h.main && h.main.name,
+            changedName: h.changed && h.changed.name,
+            advice: h.main && h.main.nature
+        } : {}
+    });
+}
+
 // 生成结果页的一键分享文案
 function renderShareCopies(hexagramData) {
     const section = document.getElementById('share-copy-section');
@@ -504,9 +526,9 @@ function renderShareCopies(hexagramData) {
     const url = shareModule ? shareModule.buildShareUrl({ ref: 'copy' }) : location.href;
 
     const copies = [
-        `我摇到了「${name}」——今天的卦象有点东西。你的今日一卦是什么？ ${url}`,
-        `用「周易六爻」测了一卦，知几而决，看见变化、理清处境。推荐你也来一卦 👉 ${url}`,
-        `心里有事拿不定主意？我刚摇了一卦挺有启发。免费，静心一试： ${url}`
+        `我刚摇到「${name}」卦，竟然有点准…你最近是不是也有拿不定的事？点开摇一卦看看 👉 ${url}`,
+        `与其反复纠结，不如问一卦。我抽到了「${name}」，分享给同样在做选择的你： ${url}`,
+        `【${name}】今天为自己摇了一卦，心里清楚了不少。免费的，你也静心试试 👉 ${url}`
     ];
 
     list.innerHTML = '';
@@ -631,24 +653,11 @@ function bindEvents() {
 
     // 分享这一卦 · 结果页（结果卡，卦象符号+卦名，不含所问，偏私密）
     const shareResultBtn = document.getElementById('share-app-btn');
-    if (shareResultBtn) {
-        shareResultBtn.addEventListener('click', () => {
-            if (!shareModule) return;
-            const h = state.currentHexagramData;
-            shareModule.open({
-                cardType: 'result',
-                ref: 'result',
-                title: '分享这一卦',
-                hint: '把卦象转给懂的人（不含你的所问）',
-                cardData: h ? {
-                    symbol: h.main && h.main.symbol,
-                    name: h.main && h.main.name,
-                    changedName: h.changed && h.changed.name,
-                    advice: h.main && h.main.nature
-                } : {}
-            });
-        });
-    }
+    if (shareResultBtn) shareResultBtn.addEventListener('click', openResultShare);
+
+    // 贴底浮动分享条
+    const shareStickyBtn = document.getElementById('share-sticky-btn');
+    if (shareStickyBtn) shareStickyBtn.addEventListener('click', openResultShare);
 
     // 连续打卡 chip → 晒成就卡
     const streakChip = document.getElementById('streak-chip');
