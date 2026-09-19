@@ -8,11 +8,17 @@
 // 应用状态
 // ========================================
 
+const MAX_FOLLOWUPS = 5;
+const READING_GUIDE_KEY = 'fortune_reading_guide_dismissed';
+
 const state = {
     currentPage: 'welcome',
     userQuestion: '',
     currentHexagramData: null,  // 当前卦象数据
-    currentInterpretation: ''   // 当前解读内容
+    currentInterpretation: '',  // 当前解读内容
+    followUpHistory: [],
+    followUpCount: 0,
+    followUpBusy: false
 };
 
 let isMobileDevice = false;
@@ -28,6 +34,23 @@ function checkDeviceType() {
 let lastShakeTime = 0;
 const SHAKE_THRESHOLD = 15;
 let lastX = null, lastY = null, lastZ = null;
+let shakeListenerBound = false;
+
+function setShakeGuide(mode) {
+    const guide = document.getElementById('shake-guide');
+    if (!guide) return;
+    const title = guide.querySelector('.shake-guide-title');
+    const sub = guide.querySelector('.shake-guide-sub');
+    guide.hidden = false;
+    guide.classList.toggle('is-denied', mode === 'denied');
+    if (mode === 'denied') {
+        if (title) title.textContent = '未能开启摇一摇';
+        if (sub) sub.textContent = '请点下方按钮掷铜钱。若在微信里，可点右上角用浏览器打开后再试。';
+        return;
+    }
+    if (title) title.textContent = '摇晃手机，掷出这一爻';
+    if (sub) sub.textContent = '感应到晃动就会抛出三枚铜钱。点下方按钮也可以。';
+}
 
 function handleDeviceMotion(event) {
     if (!coinModule || coinModule.isFlipping || coinModule.throwCount >= 6 || state.currentPage !== 'coin') return;
@@ -48,6 +71,7 @@ function handleDeviceMotion(event) {
             const now = Date.now();
             if (now - lastShakeTime > 2000) { // 防抖，2秒内只触发一次
                 lastShakeTime = now;
+                if (navigator.vibrate) navigator.vibrate(40);
                 handleThrowClick();
             }
         }
@@ -58,19 +82,30 @@ function handleDeviceMotion(event) {
     lastZ = currentZ;
 }
 
+function enableShakeListener() {
+    if (shakeListenerBound) return;
+    shakeListenerBound = true;
+    window.addEventListener('devicemotion', handleDeviceMotion, false);
+}
+
 function setupShakeEvent() {
+    setShakeGuide('ready');
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        // iOS 13+ 必须由用户手势触发请求
         DeviceMotionEvent.requestPermission()
             .then(permissionState => {
                 if (permissionState === 'granted') {
-                    window.addEventListener('devicemotion', handleDeviceMotion, false);
+                    enableShakeListener();
+                    setShakeGuide('ready');
+                } else {
+                    setShakeGuide('denied');
                 }
             })
-            .catch(console.error);
+            .catch(() => setShakeGuide('denied'));
+    } else if (typeof DeviceMotionEvent !== 'undefined') {
+        enableShakeListener();
+        setShakeGuide('ready');
     } else {
-        // 其他设备直接监听
-        window.addEventListener('devicemotion', handleDeviceMotion, false);
+        setShakeGuide('denied');
     }
 }
 
@@ -109,11 +144,16 @@ const elements = {
     yaoLines: [],
     
     // 结果页
-    hexagramVisual: null,
-    hexagramName: null,
-    hexagramNature: null,
+    hexagramBoard: null,
+    castMeta: null,
+    boardLegend: null,
     displayQuestion: null,
     aiResponse: null,
+    followupThread: null,
+    followupSection: null,
+    followupForm: null,
+    followupInput: null,
+    followupLimit: null,
     restartBtn: null,
     exportPngBtn: null,
     
@@ -156,11 +196,16 @@ function initElements() {
         document.getElementById('yao-6')
     ];
     
-    elements.hexagramVisual = document.getElementById('hexagram-visual');
-    elements.hexagramName = document.getElementById('hexagram-name');
-    elements.hexagramNature = document.getElementById('hexagram-nature');
+    elements.hexagramBoard = document.getElementById('hexagram-board');
+    elements.castMeta = document.getElementById('cast-meta');
+    elements.boardLegend = document.getElementById('board-legend');
     elements.displayQuestion = document.getElementById('display-question');
     elements.aiResponse = document.getElementById('ai-response');
+    elements.followupThread = document.getElementById('followup-thread');
+    elements.followupSection = document.getElementById('followup-section');
+    elements.followupForm = document.getElementById('followup-form');
+    elements.followupInput = document.getElementById('followup-input');
+    elements.followupLimit = document.getElementById('followup-limit');
     elements.restartBtn = document.getElementById('restart-btn');
     elements.exportPngBtn = document.getElementById('export-png-btn');
     
@@ -199,10 +244,11 @@ function initModules() {
     rendererModule = new RendererModule();
     rendererModule.init({
         aiResponse: elements.aiResponse,
-        hexagramVisual: elements.hexagramVisual,
-        hexagramName: elements.hexagramName,
-        hexagramNature: elements.hexagramNature,
-        displayQuestion: elements.displayQuestion
+        hexagramBoard: elements.hexagramBoard,
+        castMeta: elements.castMeta,
+        boardLegend: elements.boardLegend,
+        displayQuestion: elements.displayQuestion,
+        followupThread: elements.followupThread
     });
     
     // 初始化截图导出模块
@@ -276,16 +322,13 @@ function handleThrowClick() {
 
 async function handleHexagramComplete(hexagramData) {
     showPage('result');
+    setupReadingGuide();
+    resetFollowUpState();
     
-    // 显示加载状态
     rendererModule.showLoading();
-    
-    // 渲染卦象图形和名称
-    rendererModule.renderHexagramVisual(hexagramData.yaoResults);
-    rendererModule.renderHexagramName(hexagramData);
+    rendererModule.renderHexagramBoard(hexagramData);
     rendererModule.renderUserQuestion(state.userQuestion);
 
-    // 裂变 & 留存：打卡、编号、埋点、文案、日志
     onDivinationComplete(hexagramData);
 
     // 检查 API 配置（后端代理或本地 Key）
@@ -335,6 +378,7 @@ async function fetchAIInterpretation(hexagramData) {
         state.currentHexagramData = hexagramData;
         state.currentInterpretation = result.content;
         rendererModule.renderMarkdown(result.content);
+        beginFollowUpSession(result.content);
     } else if (result.useLocal) {
         console.log('使用本地解读:', result.error);
         showLocalInterpretation(hexagramData);
@@ -361,6 +405,7 @@ async function fetchAIInterpretationStream(hexagramData) {
             const finalContent = rendererModule.finishStreamRender();
             state.currentHexagramData = hexagramData;
             state.currentInterpretation = finalContent;
+            beginFollowUpSession(finalContent);
             console.log('流式响应完成');
         },
         // onError - 错误
@@ -386,15 +431,146 @@ function showLocalInterpretation(hexagramData) {
     state.currentHexagramData = hexagramData;
     state.currentInterpretation = interpretation;
     rendererModule.renderMarkdown(interpretation);
+    beginFollowUpSession(interpretation);
+}
+
+function resetFollowUpState() {
+    state.followUpHistory = [];
+    state.followUpCount = 0;
+    state.followUpBusy = false;
+    if (rendererModule) rendererModule.resetFollowUpThread();
+    if (elements.followupSection) {
+        elements.followupSection.hidden = true;
+        elements.followupSection.classList.remove('is-busy', 'is-capped');
+    }
+    if (elements.followupInput) elements.followupInput.value = '';
+    if (elements.followupLimit) elements.followupLimit.textContent = '';
+}
+
+function beginFollowUpSession(interpretation) {
+    state.followUpHistory = [
+        { role: 'user', content: state.userQuestion },
+        { role: 'assistant', content: interpretation || '' }
+    ];
+    state.followUpCount = 0;
+    state.followUpBusy = false;
+    if (!elements.followupSection) return;
+    elements.followupSection.hidden = false;
+    elements.followupSection.classList.remove('is-busy', 'is-capped');
+    updateFollowUpLimit();
+}
+
+function updateFollowUpLimit() {
+    if (!elements.followupLimit || !elements.followupSection) return;
+    const remain = MAX_FOLLOWUPS - state.followUpCount;
+    if (remain <= 0) {
+        elements.followupSection.classList.add('is-capped');
+        elements.followupLimit.textContent = '本卦追问已满，可再占一卦';
+        return;
+    }
+    elements.followupSection.classList.remove('is-capped');
+    elements.followupLimit.textContent = `同一卦还可追问 ${remain} 次`;
+}
+
+function setupReadingGuide() {
+    const el = document.getElementById('reading-guide');
+    const btn = document.getElementById('reading-guide-dismiss');
+    if (!el) return;
+    let dismissed = false;
+    try {
+        dismissed = localStorage.getItem(READING_GUIDE_KEY) === '1';
+    } catch (e) { /* ignore */ }
+    el.hidden = dismissed;
+    if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => {
+            el.hidden = true;
+            try { localStorage.setItem(READING_GUIDE_KEY, '1'); } catch (e) { /* ignore */ }
+        });
+    }
+}
+
+async function handleFollowUpSubmit(event) {
+    if (event) event.preventDefault();
+    if (state.followUpBusy || state.followUpCount >= MAX_FOLLOWUPS) return;
+    if (!state.currentHexagramData) return;
+
+    const text = (elements.followupInput && elements.followupInput.value.trim()) || '';
+    if (!text) {
+        if (elements.followupInput) elements.followupInput.focus();
+        return;
+    }
+
+    state.followUpBusy = true;
+    if (elements.followupSection) elements.followupSection.classList.add('is-busy');
+    if (elements.followupInput) elements.followupInput.value = '';
+
+    rendererModule.appendFollowUpUser(text);
+    rendererModule.initFollowUpStream();
+
+    const extra = {
+        followUp: text,
+        history: state.followUpHistory.slice()
+    };
+
+    const config = apiModule.getConfig();
+    let content = '';
+    let ok = false;
+
+    try {
+        if (config.useProxy && config.useStream) {
+            const result = await apiModule.getInterpretationStream(
+                state.currentHexagramData,
+                state.userQuestion,
+                state.currentHexagramData.yaoResults,
+                (chunk) => rendererModule.appendStreamContent(chunk),
+                (full) => {
+                    content = rendererModule.finishStreamRender() || full;
+                },
+                (error) => {
+                    console.error('追问流式失败:', error);
+                },
+                extra
+            );
+            ok = !!(result && result.success);
+            if (ok && !content) content = result.content || rendererModule.getStreamContent();
+        }
+
+        if (!ok) {
+            const result = await apiModule.getInterpretation(
+                state.currentHexagramData,
+                state.userQuestion,
+                state.currentHexagramData.yaoResults,
+                extra
+            );
+            if (result.success) {
+                content = result.content;
+            } else {
+                content = apiModule.generateLocalFollowUp(
+                    state.currentHexagramData,
+                    state.userQuestion,
+                    text
+                );
+            }
+            rendererModule.renderFollowUpMarkdown(content);
+        }
+
+        state.followUpHistory.push({ role: 'user', content: text });
+        state.followUpHistory.push({ role: 'assistant', content: content });
+        state.followUpCount += 1;
+        updateFollowUpLimit();
+    } finally {
+        state.followUpBusy = false;
+        if (elements.followupSection) elements.followupSection.classList.remove('is-busy');
+    }
 }
 
 function handleRestartClick() {
-    // 重置状态
     state.userQuestion = '';
     state.currentHexagramData = null;
     state.currentInterpretation = '';
+    resetFollowUpState();
     
-    // 重置模块
     coinModule.reset();
     
     // 重置 UI
@@ -426,7 +602,8 @@ async function handleExportPng() {
         await pngExportModule.exportToPng(
             state.currentHexagramData,
             state.userQuestion,
-            state.currentInterpretation
+            state.currentInterpretation,
+            (state.followUpHistory || []).slice(2)
         );
     } finally {
         btn.querySelector('.btn-text').textContent = originalText;
@@ -511,6 +688,8 @@ function openResultShare() {
             symbol: h.main && h.main.symbol,
             name: h.main && h.main.name,
             changedName: h.changed && h.changed.name,
+            trigram: h.main && h.main.trigramText,
+            ganzhi: h.ganzhi && h.ganzhi.text,
             advice: h.main && h.main.nature
         } : {}
     });
@@ -643,6 +822,17 @@ function bindEvents() {
     // 导出长图
     elements.exportPngBtn.addEventListener('click', handleExportPng);
 
+    if (elements.followupForm) {
+        elements.followupForm.addEventListener('submit', handleFollowUpSubmit);
+    }
+    document.querySelectorAll('.followup-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            if (!elements.followupInput || state.followUpBusy) return;
+            elements.followupInput.value = chip.getAttribute('data-followup') || '';
+            elements.followupInput.focus();
+        });
+    });
+
     // 分享给朋友 · 欢迎页（品牌卡，可公开晒）
     const shareWelcomeBtn = document.getElementById('share-app-btn-welcome');
     if (shareWelcomeBtn) {
@@ -774,6 +964,11 @@ function fillApiForm() {
 async function init() {
     checkDeviceType();
     initElements();
+
+    if (isMobileDevice) {
+        const throwLabel = document.querySelector('[data-step-throw-label]');
+        if (throwLabel) throwLabel.textContent = '摇六次铜钱';
+    }
     
     // 提前更新文本，以免出现闪烁
     if (elements.throwResult) {

@@ -8,10 +8,100 @@ class PngExportModule {
         this.isExporting = false;
     }
 
-    /**
-     * 生成导出内容的 HTML
-     */
-    generateExportHtml(hexagramData, userQuestion, interpretation) {
+    escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    yaoStackHtml(yaoResults) {
+        return [...(yaoResults || [])].reverse().map((yao) => {
+            const isMoving = yao.moving;
+            const isYang = yao.type === 'yang';
+            const outline = yao.wasMoving ? 'outline:1px dashed rgba(196,30,58,0.4);outline-offset:2px;' : '';
+            if (isYang) {
+                const color = isMoving ? '#c41e3a' : '#d4af37';
+                return `<div style="width:72px;height:10px;background:${color};margin:5px 0;border-radius:2px;${outline}"></div>`;
+            }
+            const color = isMoving ? '#e67e22' : '#8aa8d8';
+            return `<div style="display:flex;gap:10px;margin:5px 0;${outline}">
+                <div style="width:30px;height:10px;background:${color};border-radius:2px;"></div>
+                <div style="width:30px;height:10px;background:${color};border-radius:2px;"></div>
+            </div>`;
+        }).join('');
+    }
+
+    yaoListHtml(yaoResults) {
+        const names = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+        return (yaoResults || []).map((yao, i) => {
+            const typeText = yao.type === 'yang' ? '阳' : '阴';
+            const badge = yao.moving
+                ? `<span style="display:inline-block;background:#c41e3a;color:#fff;font-size:10px;padding:0 5px;border-radius:3px;margin-left:6px;">动</span>`
+                : (yao.wasMoving
+                    ? `<span style="display:inline-block;background:#c41e3a66;color:#fff;font-size:10px;padding:0 5px;border-radius:3px;margin-left:6px;">变</span>`
+                    : '');
+            const color = yao.moving ? '#c41e3a' : '#555';
+            return `<div style="display:flex;justify-content:space-between;margin:4px 0;font-size:12px;color:${color};">
+                <span>${names[i]}</span><span>${typeText}${badge}</span>
+            </div>`;
+        }).join('');
+    }
+
+    changedYaoResults(yaoResults) {
+        return (yaoResults || []).map((yao) => ({
+            type: yao.moving ? (yao.type === 'yang' ? 'yin' : 'yang') : yao.type,
+            moving: false,
+            wasMoving: !!yao.moving
+        }));
+    }
+
+    hexColumnHtml(hex, yaoResults, kicker, hint) {
+        const name = this.escapeHtml(hex && hex.name);
+        const trigram = this.escapeHtml(hex && (hex.trigramText || hex.symbol || ''));
+        const nature = this.escapeHtml(hex && hex.nature);
+        return `
+            <div style="text-align:center;padding:8px 10px;">
+                <div style="font-size:12px;letter-spacing:2px;color:#c41e3a;margin-bottom:12px;">${this.escapeHtml(kicker)} · ${this.escapeHtml(hint)}</div>
+                <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:10px;">${this.yaoStackHtml(yaoResults)}</div>
+                <div style="font-size:24px;color:#c41e3a;margin:0 0 6px;">${name}</div>
+                ${trigram ? `<div style="font-size:13px;color:#777;margin-bottom:6px;">${trigram}</div>` : ''}
+                ${nature ? `<div style="font-size:13px;color:#888;font-style:italic;margin-bottom:10px;">「${nature}」</div>` : ''}
+                <div style="max-width:168px;margin:0 auto;text-align:left;">${this.yaoListHtml(yaoResults)}</div>
+            </div>
+        `;
+    }
+
+    emphasizeGanzhiLabel(html) {
+        return String(html || '').replace(/起卦日辰/g, (match, offset, src) => {
+            const before = src.slice(0, offset);
+            if (before.lastIndexOf('<strong') > before.lastIndexOf('</strong>')) return match;
+            const lt = before.lastIndexOf('<');
+            const gt = before.lastIndexOf('>');
+            if (lt > gt) return match;
+            return '<strong>起卦日辰</strong>';
+        });
+    }
+
+    parseMarkdown(text) {
+        const html = typeof marked !== 'undefined'
+            ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(text || ''))
+            : this.escapeHtml(text).replace(/\n/g, '<br>');
+        return this.emphasizeGanzhiLabel(html);
+    }
+
+    captureScale() {
+        return Math.max(3, Math.ceil(window.devicePixelRatio || 1) + 1);
+    }
+
+    async waitForFonts() {
+        if (document.fonts && document.fonts.ready) {
+            try { await document.fonts.ready; } catch (e) { /* ignore */ }
+        }
+    }
+
+    generateExportHtml(hexagramData, userQuestion, interpretation, followUps) {
         const now = new Date();
         const dateStr = now.toLocaleDateString('zh-CN', {
             year: 'numeric',
@@ -20,112 +110,61 @@ class PngExportModule {
             hour: '2-digit',
             minute: '2-digit'
         });
+        const g = hexagramData.ganzhi || {};
+        const mainCol = this.hexColumnHtml(hexagramData.main, hexagramData.yaoResults || [], '本卦', '当前处境');
+        const changedCol = hexagramData.changed
+            ? this.hexColumnHtml(hexagramData.changed, this.changedYaoResults(hexagramData.yaoResults), '变卦', '变化趋向')
+            : `<div style="display:flex;align-items:center;justify-content:center;padding:24px 16px;color:#777;font-size:14px;line-height:1.7;">六爻安静，事态未起变。先把本卦当作当前处境来看。</div>`;
+        const legend = hexagramData.changed
+            ? '本卦看处境 · 动爻看转折 · 变卦看趋向'
+            : '本卦看处境 · 六爻安静，先守住当下';
 
-        // 生成六爻图形 HTML
-        const yaoLines = hexagramData.yaoResults.map((yao) => {
-            const isMoving = yao.moving;
-            const isYang = yao.type === 'yang';
-
-            if (isYang) {
-                const color = isMoving ? '#c41e3a' : '#d4af37';
-                const shadow = isMoving
-                    ? '0 0 8px rgba(196,30,58,0.6)'
-                    : '0 0 6px rgba(212,175,55,0.4)';
-                return `<div style="width:70px;height:10px;background:${color};margin:5px 0;border-radius:2px;box-shadow:${shadow};"></div>`;
-            } else {
-                const color = isMoving ? '#e67e22' : '#a0c4ff';
-                const shadow = isMoving
-                    ? '0 0 8px rgba(230,126,34,0.7)'
-                    : '0 0 6px rgba(160,196,255,0.4)';
-                return `
-                    <div style="display:flex;gap:10px;margin:5px 0;">
-                        <div style="width:28px;height:10px;background:${color};border-radius:2px;box-shadow:${shadow};"></div>
-                        <div style="width:28px;height:10px;background:${color};border-radius:2px;box-shadow:${shadow};"></div>
-                    </div>`;
-            }
-        }).reverse().join('');
-
-        // 生成爻详情
-        const yaoDetails = hexagramData.yaoResults.map((yao, i) => {
-            const position = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][i];
-            const typeText = yao.type === 'yang' ? '阳爻 ━━━' : '阴爻 ━ ━';
-            const movingBadge = yao.moving
-                ? `<span style="display:inline-block;background:#c41e3a;color:#fff;font-size:11px;padding:1px 6px;border-radius:3px;margin-left:6px;">动爻</span>`
-                : '';
-            return `<div style="margin:5px 0;font-size:13px;color:#555;">${position}：${typeText}${movingBadge}</div>`;
+        const followUpHtml = (followUps || []).map((item) => {
+            const label = item.role === 'assistant' ? '补解' : '追问';
+            const body = item.role === 'assistant' ? this.parseMarkdown(item.content) : this.escapeHtml(item.content);
+            const bg = item.role === 'assistant' ? 'rgba(212,175,55,0.08)' : 'rgba(196,30,58,0.06)';
+            return `<div style="margin-top:14px;padding:14px 16px;border-radius:10px;background:${bg};">
+                <div style="font-size:12px;letter-spacing:2px;color:#c41e3a;margin-bottom:8px;">${label}</div>
+                <div style="font-size:14px;line-height:1.7;color:#2c2c2c;">${body}</div>
+            </div>`;
         }).join('');
-
-        // Markdown 转 HTML
-        let interpretationHtml = interpretation;
-        if (typeof marked !== 'undefined') {
-            interpretationHtml = marked.parse(interpretation);
-        }
 
         return `
             <div id="screenshot-content" style="
                 font-family: 'Noto Serif SC', 'SimSun', serif;
                 padding: 48px 40px;
-                background: #fffef5;
+                background: linear-gradient(180deg, #fffef5 0%, #f5f0e1 100%);
                 color: #2c2c2c;
-                width: 700px;
+                width: 720px;
                 box-sizing: border-box;
             ">
-                <!-- 顶部装饰线 -->
-                <div style="height:4px;background:#c41e3a;border-radius:2px;margin-bottom:32px;"></div>
-
-                <!-- 标题 -->
-                <div style="text-align:center;margin-bottom:28px;">
-                    <div style="font-size:13px;color:#aaa;letter-spacing:3px;margin-bottom:8px;">☯ 周易六爻 · 铜钱占卜 ☯</div>
+                <div style="height:4px;background:#c41e3a;border-radius:2px;margin-bottom:28px;"></div>
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="font-size:13px;color:#aaa;letter-spacing:3px;margin-bottom:8px;">周易六爻 · 铜钱占卜</div>
                     <h1 style="font-size:30px;color:#c41e3a;margin:0 0 8px 0;letter-spacing:8px;">卦象解读</h1>
                     <p style="color:#999;font-size:13px;margin:0;">占卜时间：${dateStr}</p>
                 </div>
 
-                <!-- 所问之事 -->
-                <div style="
-                    background:#fff8e7;
-                    padding:18px 20px;
-                    border-radius:8px;
-                    margin-bottom:22px;
-                    border-left:4px solid #d4af37;
-                ">
-                    <div style="color:#c41e3a;font-weight:600;font-size:14px;margin-bottom:8px;">📿 所问之事</div>
-                    <p style="margin:0;font-size:16px;line-height:1.7;">${userQuestion}</p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(196,30,58,0.12);font-size:14px;">
+                    <span style="color:#c41e3a;font-weight:600;font-size:12px;letter-spacing:2px;">起卦日辰</span>
+                    <span>${this.escapeHtml(g.year || '—')}年</span>
+                    <span>${this.escapeHtml(g.month || '—')}月</span>
+                    <span>${this.escapeHtml(g.day || '—')}日</span>
+                    <span>${this.escapeHtml(g.hour || '—')}时</span>
                 </div>
 
-                <!-- 卦象信息 -->
-                <div style="
-                    display:flex;
-                    gap:28px;
-                    margin-bottom:22px;
-                    padding:20px;
-                    background:rgba(0,0,0,0.03);
-                    border-radius:8px;
-                    border:1px solid rgba(212,175,55,0.2);
-                ">
-                    <div style="text-align:center;flex-shrink:0;">
-                        <div style="font-size:12px;color:#999;margin-bottom:10px;letter-spacing:2px;">卦象</div>
-                        <div style="display:flex;flex-direction:column;align-items:center;">
-                            ${yaoLines}
-                        </div>
-                    </div>
-                    <div style="flex:1;padding-top:4px;">
-                        <h3 style="color:#c41e3a;font-size:22px;margin:0 0 8px 0;">
-                            ${hexagramData.main.name}${hexagramData.changed ? ' → ' + hexagramData.changed.name : ''}
-                        </h3>
-                        ${hexagramData.main.nature ? `<p style="color:#888;font-style:italic;margin:0 0 12px 0;font-size:14px;">「${hexagramData.main.nature}」</p>` : ''}
-                        <div>${yaoDetails}</div>
-                    </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;border:1px solid rgba(212,175,55,0.28);border-radius:10px;background:rgba(255,255,255,0.55);">
+                    ${mainCol}
+                    ${changedCol}
+                </div>
+                <p style="text-align:center;font-size:13px;color:#777;letter-spacing:1px;margin:8px 0 22px;">${legend}</p>
+
+                <div style="padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid rgba(196,30,58,0.18);font-size:16px;line-height:1.7;">
+                    <span style="color:#c41e3a;font-weight:600;">所问之事：</span>
+                    <span>${this.escapeHtml(userQuestion)}</span>
                 </div>
 
-                <!-- 解读内容 -->
-                <div style="
-                    background:#fff;
-                    padding:24px;
-                    border-radius:8px;
-                    border:1px solid #eee;
-                    line-height:1.8;
-                    font-size:15px;
-                ">
+                <div style="line-height:1.8;font-size:15px;">
                     <style>
                         #screenshot-content h2 { color:#c41e3a;font-size:18px;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #eee; }
                         #screenshot-content h2:first-child { margin-top:0; }
@@ -145,10 +184,10 @@ class PngExportModule {
                         }
                         #screenshot-content hr { border:none;height:1px;background:#d4af37;margin:18px 0; }
                     </style>
-                    ${interpretationHtml}
+                    ${this.parseMarkdown(interpretation)}
+                    ${followUpHtml}
                 </div>
 
-                <!-- 底部装饰 -->
                 <div style="text-align:center;margin-top:28px;color:#bbb;font-size:12px;">
                     <div style="height:1px;background:#d4af37;margin-bottom:16px;"></div>
                     <p style="margin:0;">卦象仅供参考，命运掌握在自己手中</p>
@@ -157,17 +196,11 @@ class PngExportModule {
         `;
     }
 
-    /**
-     * 检测是否为移动端
-     */
     isMobile() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
             || window.innerWidth <= 768;
     }
 
-    /**
-     * 将 canvas 转为 Blob
-     */
     canvasToBlob(canvas, type = 'image/png') {
         return new Promise((resolve, reject) => {
             canvas.toBlob(blob => {
@@ -177,14 +210,10 @@ class PngExportModule {
         });
     }
 
-    /**
-     * 移动端保存：优先使用 Web Share API，回退到新窗口预览
-     */
     async saveMobile(canvas, fileName) {
         const blob = await this.canvasToBlob(canvas);
         const file = new File([blob], fileName, { type: 'image/png' });
 
-        // 优先尝试 Web Share API（iOS Safari 15+、Android Chrome 均支持）
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({
@@ -194,11 +223,10 @@ class PngExportModule {
                 });
                 return;
             } catch (e) {
-                if (e.name === 'AbortError') return; // 用户取消分享
+                if (e.name === 'AbortError') return;
             }
         }
 
-        // 回退方案：用 Blob URL 在新窗口打开，提示长按保存
         const url = URL.createObjectURL(blob);
         const preview = window.open('');
         if (preview) {
@@ -212,14 +240,10 @@ class PngExportModule {
             `);
             preview.document.close();
         } else {
-            // 弹窗被拦截时，直接在当前页展示
             this.showInlinePreview(url);
         }
     }
 
-    /**
-     * 内联预览（弹窗被拦截时的最终回退）
-     */
     showInlinePreview(blobUrl) {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:20px;';
@@ -241,9 +265,6 @@ class PngExportModule {
         document.body.appendChild(overlay);
     }
 
-    /**
-     * 桌面端保存：使用 Blob URL + <a download>（比 data URL 更可靠）
-     */
     saveDesktop(canvas, fileName) {
         const url = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -252,20 +273,17 @@ class PngExportModule {
         link.click();
     }
 
-    /**
-     * 导出为长截图 PNG
-     */
-    async exportToPng(hexagramData, userQuestion, interpretation) {
+    async exportToPng(hexagramData, userQuestion, interpretation, followUps) {
         if (this.isExporting) return;
         this.isExporting = true;
 
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:700px;z-index:-1;';
-        wrapper.innerHTML = this.generateExportHtml(hexagramData, userQuestion, interpretation);
+        wrapper.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;z-index:-1;';
+        wrapper.innerHTML = this.generateExportHtml(hexagramData, userQuestion, interpretation, followUps);
         document.body.appendChild(wrapper);
 
         const content = wrapper.querySelector('#screenshot-content');
-
+        await this.waitForFonts();
         await new Promise(r => requestAnimationFrame(r));
 
         try {
@@ -274,10 +292,13 @@ class PngExportModule {
             }
 
             const canvas = await html2canvas(content, {
-                scale: 2,
+                scale: this.captureScale(),
                 useCORS: true,
                 backgroundColor: '#fffef5',
-                logging: false
+                logging: false,
+                letterRendering: true,
+                width: 720,
+                windowWidth: 720
             });
 
             const datePart = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-');

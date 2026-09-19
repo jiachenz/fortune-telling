@@ -62,6 +62,11 @@
                     <h1 class="main-title">周易六爻</h1>
                     <p class="subtitle">知几而决</p>
                     <p class="brand-description">看见变化，理清处境，做出更清醒的选择</p>
+                    <ol class="welcome-steps">
+                        <li><span class="step-num">1</span><span class="step-label">写下所问</span></li>
+                        <li><span class="step-num">2</span><span class="step-label" data-step-throw-label>掷六次铜钱</span></li>
+                        <li><span class="step-num">3</span><span class="step-label">对照卦象读解读</span></li>
+                    </ol>
                 </div>
 
                 <article id="daily-tip-card" class="daily-tip-card">
@@ -130,6 +135,15 @@
                 <div class="page-header">
                     <h2 class="page-title">掷铜钱</h2>
                     <p class="page-subtitle">第 <span id="current-throw">1</span> 爻 / 共六爻</p>
+                    <p class="page-guide">少阳、少阴为稳定爻；老阳、老阴为动爻，动爻才会出变卦</p>
+                </div>
+
+                <div id="shake-guide" class="shake-guide" hidden>
+                    <span class="shake-phone" aria-hidden="true"></span>
+                    <div>
+                        <p class="shake-guide-title">摇晃手机，掷出这一爻</p>
+                        <p class="shake-guide-sub">感应到晃动就会抛出三枚铜钱。点下方按钮也可以。</p>
+                    </div>
                 </div>
 
                 <div class="coins-container">
@@ -167,6 +181,7 @@
 
                 <div class="throw-result" id="throw-result">
                     <span class="result-text">点击下方按钮掷出铜钱</span>
+                    <p class="throw-hint">少阳、少阴为稳定爻；老阳、老阴为动爻，动爻才会出变卦</p>
                 </div>
 
                 <button id="throw-btn" class="primary-btn throw-btn">
@@ -191,9 +206,10 @@
 
         <!-- 页面3: 结果页面 -->
         <section id="result-page" class="page">
-            <div class="content-wrapper">
+            <div class="content-wrapper result-wrapper">
                 <div class="page-header">
                     <h2 class="page-title">卦象解读</h2>
+                    <p class="page-guide">先看盘，再读解读。本卦是处境，动爻是转折，变卦是趋向。</p>
                 </div>
 
                 <p class="daily-number" id="daily-number" hidden>
@@ -201,29 +217,46 @@
                     · 您今日第 <span id="daily-times-value">—</span> 次求卦
                 </p>
 
-                <div class="hexagram-display">
-                    <div class="hexagram-visual" id="hexagram-visual">
-                        <!-- 六爻将在这里显示 -->
+                <article class="result-scroll">
+                    <div id="reading-guide" class="reading-guide" hidden>
+                        <p>怎么看这张盘：<strong>本卦</strong>看当前处境，<strong>动爻</strong>看转折，<strong>变卦</strong>看趋向。下面的解读会扣着你的问题来说。</p>
+                        <button type="button" id="reading-guide-dismiss">知道了</button>
                     </div>
-                    <div class="hexagram-info">
-                        <h3 class="hexagram-name" id="hexagram-name">正在解卦...</h3>
-                        <p class="hexagram-nature" id="hexagram-nature"></p>
-                    </div>
-                </div>
 
-                <div class="interpretation-section">
-                    <div class="user-question-display">
-                        <span class="label">所问之事：</span>
-                        <span id="display-question"></span>
-                    </div>
-                    
-                    <div class="ai-response" id="ai-response">
-                        <div class="loading-indicator">
-                            <div class="loading-spinner"></div>
-                            <span>天机推演中...</span>
+                    <div class="cast-meta" id="cast-meta" hidden></div>
+
+                    <div class="hexagram-board" id="hexagram-board"></div>
+                    <p class="board-legend" id="board-legend">本卦看处境 · 动爻看转折 · 变卦看趋向</p>
+
+                    <div class="interpretation-section">
+                        <div class="user-question-display">
+                            <span class="label">所问之事：</span>
+                            <span id="display-question"></span>
+                        </div>
+                        
+                        <div class="ai-response" id="ai-response">
+                            <div class="loading-indicator">
+                                <div class="loading-spinner"></div>
+                                <span>天机推演中...</span>
+                            </div>
+                        </div>
+
+                        <div class="followup-thread" id="followup-thread"></div>
+
+                        <div class="followup-section" id="followup-section" hidden>
+                            <p class="followup-hint">同一卦上补充条件，无需再摇</p>
+                            <div class="followup-chips">
+                                <button type="button" class="followup-chip" data-followup="如果对方已经">如果对方已经……</button>
+                                <button type="button" class="followup-chip" data-followup="只问近一个月">只问近一个月</button>
+                            </div>
+                            <form id="followup-form" class="followup-form">
+                                <textarea id="followup-input" class="followup-input" rows="2" maxlength="500" placeholder="补充一个条件，或追问解读里的一句"></textarea>
+                                <button type="submit" class="primary-btn small" id="followup-submit">追问</button>
+                            </form>
+                            <p class="followup-limit" id="followup-limit"></p>
                         </div>
                     </div>
-                </div>
+                </article>
                 <div class="share-copy-section" id="share-copy-section" hidden>
                     <p class="share-copy-title">觉得有启发？把这份指引转给需要的人 · 点一下即可复制</p>
                     <div class="share-copy-list" id="share-copy-list"></div>
@@ -350,6 +383,8 @@
     <script src="js/storage.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/sound.js"></script>
+    <script src="js/ganzhi.js"></script>
+    <script src="js/prompt.js"></script>
     <script src="js/coin.js"></script>
     <script src="js/api.js"></script>
     <script src="js/renderer.js"></script>

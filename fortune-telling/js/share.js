@@ -129,7 +129,7 @@ class ShareModule {
         const count = qr.getModuleCount();
         const marginModules = 4;
         const totalModules = count + marginModules * 2;
-        const cell = Math.max(1, Math.floor(sizePx / totalModules));
+        const cell = Math.max(2, Math.floor(sizePx / totalModules));
         const dim = cell * totalModules;
 
         const canvas = document.createElement('canvas');
@@ -231,24 +231,31 @@ class ShareModule {
         if (btn) { btn.textContent = '生成中...'; btn.disabled = true; }
 
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:600px;z-index:-1;';
+        wrapper.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;z-index:-1;';
         wrapper.innerHTML = this.buildCardHtml(this._cardType, this._cardData);
         document.body.appendChild(wrapper);
 
         const content = wrapper.querySelector('#share-card-content');
         const qrSlot = wrapper.querySelector('#share-card-qr-slot');
 
+        if (document.fonts && document.fonts.ready) {
+            try { await document.fonts.ready; } catch (e) { /* ignore */ }
+        }
         await new Promise(r => requestAnimationFrame(r));
 
         try {
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas 库未加载，请刷新后重试');
             }
+            const scale = Math.max(3, Math.ceil(window.devicePixelRatio || 1) + 1);
             const canvas = await html2canvas(content, {
-                scale: 2,
+                scale,
                 useCORS: true,
                 backgroundColor: '#fffef5',
-                logging: false
+                logging: false,
+                letterRendering: true,
+                width: 720,
+                windowWidth: 720
             });
 
             this.compositeQr(canvas, content, qrSlot);
@@ -287,15 +294,16 @@ class ShareModule {
             const w = sRect.width * scaleX;
             const h = sRect.height * scaleY;
 
-            const qrCanvas = this.makeQrCanvas(this.getShareUrl(), Math.round(Math.min(w, h)));
+            const dest = Math.round(Math.min(w, h));
+            const qrCanvas = this.makeQrCanvas(this.getShareUrl(), dest * 2);
             const ctx = targetCanvas.getContext('2d');
-            // 复位上下文：html2canvas 渲染后可能残留 globalAlpha=0 / 变换，导致后续绘制不可见
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = 'source-over';
-            const dx = x + (w - qrCanvas.width) / 2;
-            const dy = y + (h - qrCanvas.height) / 2;
-            ctx.drawImage(qrCanvas, dx, dy);
+            ctx.imageSmoothingEnabled = false;
+            const dx = x + (w - dest) / 2;
+            const dy = y + (h - dest) / 2;
+            ctx.drawImage(qrCanvas, dx, dy, dest, dest);
         } catch (e) {
             console.error('合成二维码失败:', e);
         }
@@ -341,7 +349,7 @@ class ShareModule {
         return `
             <div id="share-card-content" style="
                 font-family:'Noto Serif SC','SimSun',serif;
-                width:600px;box-sizing:border-box;padding:56px 48px;
+                width:720px;box-sizing:border-box;padding:56px 48px;
                 background:linear-gradient(160deg,#fffef5 0%,#fbf3df 100%);
                 color:#2c2c2c;text-align:center;">
                 <div style="height:4px;width:64px;background:#c41e3a;border-radius:2px;margin:0 auto 32px;"></div>
@@ -413,9 +421,14 @@ class ShareModule {
         const changed = data.changedName ? ` → ${this.escapeHtml(data.changedName)}` : '';
         const question = data.question ? this.escapeHtml(data.question) : '';
         const advice = data.advice ? this.escapeHtml(data.advice) : '';
+        const trigram = this.escapeHtml(data.trigram || '');
+        const ganzhi = this.escapeHtml(data.ganzhi || '');
         const inner = `
             <div style="font-size:56px;letter-spacing:6px;line-height:1;color:#c41e3a;margin-bottom:14px;">${symbol}</div>
+            <p style="font-size:12px;letter-spacing:3px;color:#d4af37;margin:0 0 8px;">本卦看处境${changed ? ' · 变卦看趋向' : ''}</p>
             <h1 style="font-size:32px;color:#c41e3a;margin:0 0 10px;">${name}${changed}</h1>
+            ${trigram ? `<p style="font-size:14px;color:#888;margin:0 0 10px;">${trigram}</p>` : ''}
+            ${ganzhi ? `<p style="font-size:13px;color:#999;margin:0 0 16px;">起卦日辰 ${ganzhi}</p>` : ''}
             ${question ? `<p style="font-size:15px;color:#777;margin:0 0 16px;">所问：${question}</p>` : ''}
             ${advice ? `<div style="text-align:left;background:#fff8e7;border-left:4px solid #d4af37;border-radius:0 10px 10px 0;padding:16px 18px;margin:0 0 30px;font-size:14px;color:#555;line-height:1.8;">${advice}</div>` : '<div style="margin-bottom:20px;"></div>'}
         `;

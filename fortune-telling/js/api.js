@@ -84,7 +84,7 @@ class ApiModule {
     /**
      * 流式获取解卦
      */
-    async getInterpretationStream(hexagramData, userQuestion, yaoResults, onChunk, onComplete, onError) {
+    async getInterpretationStream(hexagramData, userQuestion, yaoResults, onChunk, onComplete, onError, extra = {}) {
         let fullContent = '';
         
         try {
@@ -95,7 +95,13 @@ class ApiModule {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
-                body: JSON.stringify({ hexagramData, userQuestion, yaoResults })
+                body: JSON.stringify({
+                    hexagramData,
+                    userQuestion,
+                    yaoResults,
+                    history: extra.history,
+                    followUp: extra.followUp
+                })
             });
 
             clearTimeout(timeoutId);
@@ -171,20 +177,20 @@ class ApiModule {
     /**
      * 普通方式获取解卦
      */
-    async getInterpretation(hexagramData, userQuestion, yaoResults) {
+    async getInterpretation(hexagramData, userQuestion, yaoResults, extra = {}) {
         if (this.useProxy) {
-            const result = await this.getInterpretationViaProxy(hexagramData, userQuestion, yaoResults);
+            const result = await this.getInterpretationViaProxy(hexagramData, userQuestion, yaoResults, extra);
             if (result.success) return result;
         }
 
         if (this.config.apiKey) {
-            return await this.getInterpretationDirect(hexagramData, userQuestion, yaoResults);
+            return await this.getInterpretationDirect(hexagramData, userQuestion, yaoResults, extra);
         }
 
         return { success: false, error: '未配置 API Key' };
     }
 
-    async getInterpretationViaProxy(hexagramData, userQuestion, yaoResults) {
+    async getInterpretationViaProxy(hexagramData, userQuestion, yaoResults, extra = {}) {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -193,7 +199,13 @@ class ApiModule {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
-                body: JSON.stringify({ hexagramData, userQuestion, yaoResults })
+                body: JSON.stringify({
+                    hexagramData,
+                    userQuestion,
+                    yaoResults,
+                    history: extra.history,
+                    followUp: extra.followUp
+                })
             });
 
             clearTimeout(timeoutId);
@@ -219,8 +231,15 @@ class ApiModule {
         }
     }
 
-    async getInterpretationDirect(hexagramData, userQuestion, yaoResults) {
-        const prompt = this.buildPrompt(hexagramData, userQuestion, yaoResults);
+    async getInterpretationDirect(hexagramData, userQuestion, yaoResults, extra = {}) {
+        const promptMod = typeof FortunePrompt !== 'undefined' ? FortunePrompt : null;
+        const followUp = extra.followUp || '';
+        const prompt = promptMod
+            ? promptMod.buildUserPrompt(hexagramData, userQuestion, yaoResults, extra)
+            : this.buildPrompt(hexagramData, userQuestion, yaoResults);
+        const system = promptMod
+            ? promptMod.buildSystemPrompt({ followUp })
+            : '你是周易六爻解卦者。用Markdown回答，象意启发，紧扣所问，避免绝对断言。';
 
         try {
             const response = await fetch(`${this.config.apiBase}/chat/completions`, {
@@ -232,7 +251,7 @@ class ApiModule {
                 body: JSON.stringify({
                     model: this.config.model,
                     messages: [
-                        { role: 'system', content: '你是周易占卜大师，用Markdown格式简洁回答。' },
+                        { role: 'system', content: system },
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.7,
@@ -252,7 +271,11 @@ class ApiModule {
         }
     }
 
-    buildPrompt(hexagramData, userQuestion, yaoResults) {
+    buildPrompt(hexagramData, userQuestion, yaoResults, extra = {}) {
+        if (typeof FortunePrompt !== 'undefined') {
+            return FortunePrompt.buildUserPrompt(hexagramData, userQuestion, yaoResults, extra);
+        }
+
         const yaoDetails = yaoResults.map((yao, i) => {
             const position = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][i];
             const typeText = yao.type === 'yang' ? '阳爻' : '阴爻';
@@ -268,36 +291,53 @@ ${hexagramData.main.nature ? `**卦辞：** ${hexagramData.main.nature}` : ''}
 **六爻：**
 ${yaoDetails}
 
-请用Markdown格式回答，包含：## 卦象总览、## 针对所问、## 行动指引、## 智者箴言（用引用格式）。`;
+请用Markdown格式回答。象意启发，紧扣所问字面，不要把小事写成终局。包含：## 卦象总览、## 针对所问、## 行动指引、## 智者箴言（用引用格式）。`;
     }
 
     generateLocalInterpretation(hexagramData, userQuestion, yaoResults) {
         const { main, changed, hasMoving, movingPositions } = hexagramData;
         
         let text = `## 卦象总览\n\n`;
-        text += `您所得卦象为 **「${main.name}」**`;
+        text += `所得为 **「${main.name}」**`;
+        if (main.trigramText) text += `（${main.trigramText}）`;
         if (main.nature) text += `，卦辞：*「${main.nature}」*`;
-        text += `。\n\n`;
+        text += `。本卦看当前处境`;
+        if (hasMoving && changed) {
+            text += `，动爻看转折，变卦 **「${changed.name}」** 看趋向`;
+        } else {
+            text += `；六爻安静，事态尚未起变`;
+        }
+        text += `。`;
+        const g = hexagramData.ganzhi;
+        if (g && (g.month || g.day)) {
+            text += `结合 **起卦日辰**（月建 ${g.month || '—'}、日辰 ${g.day || '—'}），看当月气势与当日旺衰应期，这是六爻用时，不是排八字。`;
+        }
+        text += `\n\n`;
         
         if (hasMoving && changed) {
-            text += `有 **动爻** 位于${movingPositions.map(p => ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][p-1]).join('、')}，变为 **「${changed.name}」**。\n\n`;
+            text += `动爻位于${movingPositions.map(p => ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][p-1]).join('、')}。\n\n`;
         }
         
         text += `## 针对所问\n\n关于「${userQuestion}」：\n\n`;
         
         const yangCount = yaoResults.filter(y => y.type === 'yang').length;
         if (yangCount >= 4) {
-            text += `此卦阳气旺盛，**积极向上**，时机有利，可主动进取。\n\n`;
+            text += `此卦阳气偏旺，**倾向**可以主动推进，但仍须看具体条件是否已经具备。\n\n`;
         } else if (yangCount <= 2) {
-            text += `此卦阴气较重，**收敛蓄势**，建议以静制动，耐心等待。\n\n`;
+            text += `此卦阴气较重，**倾向**先收敛蓄势，以静制动，而不是把眼下的停顿写成终局。\n\n`;
         } else {
-            text += `此卦阴阳均衡，**平稳发展**，按既定计划稳步推进。\n\n`;
+            text += `此卦阴阳较均衡，**倾向**按既定节奏推进，边走边校正。\n\n`;
         }
         
-        text += `## 行动指引\n\n- **宜**：保持积极心态，脚踏实地\n- **宜**：把握时机，顺势而为\n- **忌**：急躁冒进，好高骛远\n\n`;
-        text += `## 智者箴言\n\n> 易经讲究"自强不息"与"厚德载物"，卦象仅供参考，命运掌握在自己手中。`;
+        text += `## 行动指引\n\n- **宜**：把问题收回到你真正在问的那一层，做一件具体、可验证的小事\n- **宜**：对照本卦处境与变卦趋向，再决定进还是守\n- **忌**：把一次起伏说成整件事的结束\n\n`;
+        text += `## 智者箴言\n\n> 观象所以知几，知几所以能决。卦象帮你看清处境，决定仍在自己手里。`;
         
         return text;
+    }
+
+    generateLocalFollowUp(hexagramData, userQuestion, followUp) {
+        const name = (hexagramData.main && hexagramData.main.name) || '此卦';
+        return `## 针对补充\n\n关于「${followUp}」：这件事仍落在 **「${name}」** 里，需要把新条件收进原问「${userQuestion}」来看，而不是另起一卦，更不宜把补充条件写成终局。\n\n## 行动调整\n\n- 先确认这个条件有没有改变你真正要问的那一层\n- 再按本卦处境、动爻转折来微调下一步，留一点观察的余地`;
     }
 }
 

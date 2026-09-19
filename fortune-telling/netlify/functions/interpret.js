@@ -33,7 +33,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const { hexagramData, userQuestion, yaoResults } = body;
+    const { hexagramData, userQuestion, yaoResults, history, followUp } = body;
 
     if (!hexagramData || !userQuestion || !yaoResults) {
         return {
@@ -55,20 +55,15 @@ exports.handler = async (event, context) => {
         };
     }
 
-    // 构建提示词
-    const yaoDetails = yaoResults.map((yao, i) => {
-        const position = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][i];
-        const typeText = yao.type === 'yang' ? '阳爻' : '阴爻';
-        const movingText = yao.moving ? '（动爻）' : '';
-        return `${position}：${typeText}${movingText}`;
-    }).join('\n');
+    const {
+        buildSystemPrompt,
+        buildUserPrompt,
+        normalizeHistory,
+        normalizeFollowUp
+    } = require('../lib/prompt.js');
 
-    const prompt = `【求问】${userQuestion}
-【卦象】${hexagramData.main.name}${hexagramData.changed ? ' → ' + hexagramData.changed.name : ''}
-【六爻】
-${yaoDetails}
-
-用Markdown回答，包含：## 卦象总览、## 针对所问、## 行动指引、## 智者箴言（引用格式）。简洁有力。`;
+    const followUpText = normalizeFollowUp(followUp);
+    const historyNorm = normalizeHistory(history);
 
     try {
         const controller = new AbortController();
@@ -84,8 +79,14 @@ ${yaoDetails}
             body: JSON.stringify({
                 model: MODEL_NAME,
                 messages: [
-                    { role: 'system', content: '你是周易占卜大师，用Markdown简洁回答。' },
-                    { role: 'user', content: prompt }
+                    { role: 'system', content: buildSystemPrompt({ followUp: followUpText }) },
+                    {
+                        role: 'user',
+                        content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
+                            followUp: followUpText,
+                            history: historyNorm
+                        })
+                    }
                 ],
                 temperature: 0.7,
                 max_tokens: 8000
