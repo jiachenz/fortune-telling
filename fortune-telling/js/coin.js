@@ -221,6 +221,7 @@ class CoinModule {
         let resultText = `${frontCount}正${backCount}反 → `;
         
         const resultSpan = this.throwResultElement.querySelector('.result-text');
+        const hintEl = this.throwResultElement.querySelector('.throw-hint');
         if (yaoInfo.type === 'yang') {
             resultText += yaoInfo.moving ? '老阳（动爻）━━━○' : '少阳 ━━━━━';
             resultSpan.className = 'result-text yang';
@@ -229,6 +230,18 @@ class CoinModule {
             resultSpan.className = 'result-text yin';
         }
         resultSpan.textContent = resultText;
+
+        if (hintEl) {
+            if (yaoInfo.moving) {
+                hintEl.textContent = yaoInfo.type === 'yang'
+                    ? '老阳是动爻：这一爻会变阴，本卦因此走向变卦'
+                    : '老阴是动爻：这一爻会变阳，本卦因此走向变卦';
+            } else {
+                hintEl.textContent = yaoInfo.type === 'yang'
+                    ? '少阳为稳定阳爻，这一爻不会变'
+                    : '少阴为稳定阴爻，这一爻不会变';
+            }
+        }
     }
 
     /**
@@ -269,6 +282,15 @@ class CoinModule {
                     }
                 };
             }
+            const shakeGuide = document.getElementById('shake-guide');
+            if (shakeGuide) shakeGuide.hidden = true;
+            const hintEl = this.throwResultElement && this.throwResultElement.querySelector('.throw-hint');
+            if (hintEl) {
+                const moving = this.yaoResults.filter(y => y.moving).length;
+                hintEl.textContent = moving
+                    ? `六爻已成，有 ${moving} 处动爻，将生成变卦。对照本卦看处境、变卦看趋向`
+                    : '六爻已成，没有动爻。本卦即当前处境，事态尚未起变';
+            }
         }
     }
 
@@ -281,31 +303,41 @@ class CoinModule {
             .map(yao => yao.type === 'yang' ? '1' : '0')
             .join('');
         
-        // 查找卦象
+        const describe = (window.GanzhiModule && window.GanzhiModule.describeFromBinary)
+            ? window.GanzhiModule.describeFromBinary.bind(window.GanzhiModule)
+            : (hex) => hex || { name: '未知卦象', nature: '', symbol: '' };
+
         const hexagram = HEXAGRAMS[binaryStr];
         
-        // 检查是否有动爻，生成变卦
         const hasMovingYao = this.yaoResults.some(yao => yao.moving);
+        let changedBinaryStr = null;
         let changedHexagram = null;
         
         if (hasMovingYao) {
-            const changedBinaryStr = this.yaoResults
+            changedBinaryStr = this.yaoResults
                 .map(yao => {
                     if (yao.moving) {
-                        return yao.type === 'yang' ? '0' : '1'; // 动爻变化
+                        return yao.type === 'yang' ? '0' : '1';
                     }
                     return yao.type === 'yang' ? '1' : '0';
                 })
                 .join('');
             changedHexagram = HEXAGRAMS[changedBinaryStr];
         }
+
+        const castAt = new Date();
+        const ganzhi = window.GanzhiModule && window.GanzhiModule.fromDate
+            ? window.GanzhiModule.fromDate(castAt)
+            : null;
         
         return { 
-            main: hexagram || { name: '未知卦象', nature: '', symbol: '' }, 
-            changed: changedHexagram,
+            main: describe(hexagram, binaryStr), 
+            changed: changedHexagram ? describe(changedHexagram, changedBinaryStr) : null,
             hasMoving: hasMovingYao,
             movingPositions: this.yaoResults.map((yao, i) => yao.moving ? i + 1 : null).filter(Boolean),
-            yaoResults: this.yaoResults
+            yaoResults: this.yaoResults,
+            ganzhi,
+            castAt: castAt.toISOString()
         };
     }
 
@@ -335,6 +367,10 @@ class CoinModule {
             const resultSpan = this.throwResultElement.querySelector('.result-text');
             resultSpan.textContent = this.defaultHintText;
             resultSpan.className = 'result-text';
+            const hintEl = this.throwResultElement.querySelector('.throw-hint');
+            if (hintEl) {
+                hintEl.textContent = '少阳、少阴为稳定爻；老阳、老阴为动爻，动爻才会出变卦';
+            }
         }
         if (this.throwBtnElement) {
             this.throwBtnElement.textContent = '掷铜钱';

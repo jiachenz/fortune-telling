@@ -5,6 +5,16 @@
  * 使用 Server-Sent Events (SSE) 实现流式传输
  */
 
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const {
+    buildSystemPrompt,
+    buildUserPrompt,
+    normalizeHistory,
+    normalizeFollowUp
+} = require('../lib/prompt.js');
+
 export default async (request, context) => {
     // 只允许 POST 请求
     if (request.method === 'OPTIONS') {
@@ -35,7 +45,7 @@ export default async (request, context) => {
         });
     }
 
-    const { hexagramData, userQuestion, yaoResults } = body;
+    const { hexagramData, userQuestion, yaoResults, history, followUp } = body;
 
     if (!hexagramData || !userQuestion || !yaoResults) {
         return new Response(JSON.stringify({ error: '缺少必要参数' }), {
@@ -56,29 +66,8 @@ export default async (request, context) => {
         });
     }
 
-    // 构建提示词
-    const yaoDetails = yaoResults.map((yao, i) => {
-        const position = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][i];
-        const typeText = yao.type === 'yang' ? '阳爻' : '阴爻';
-        const movingText = yao.moving ? '（动爻）' : '';
-        return `${position}：${typeText}${movingText}`;
-    }).join('\n');
-
-    const prompt = `你是一位精通周易六爻占卜的大师，请根据以下信息为求卦者解答：
-
-**【求问之事】**
-${userQuestion}
-
-**【所得卦象】**
-- 本卦：${hexagramData.main.name}
-${hexagramData.main.nature ? `- 卦辞：${hexagramData.main.nature}` : ''}
-${hexagramData.changed ? `- 变卦：${hexagramData.changed.name}` : '- 无动爻，不变卦'}
-${hexagramData.hasMoving ? `- 动爻位置：${hexagramData.movingPositions.map(p => ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][p-1]).join('、')}` : ''}
-
-**【六爻详情】**（从初爻到上爻）
-${yaoDetails}
-
-请用Markdown格式回答，包含：## 卦象总览、## 针对所问、## 行动指引、## 智者箴言（用引用格式）。简洁有力，避免冗长。`;
+    const followUpText = normalizeFollowUp(followUp);
+    const historyNorm = normalizeHistory(history);
 
     try {
         // 调用 AI API（流式）
@@ -93,11 +82,14 @@ ${yaoDetails}
                 messages: [
                     {
                         role: 'system',
-                        content: '你是周易占卜大师，用Markdown格式简洁回答。'
+                        content: buildSystemPrompt({ followUp: followUpText })
                     },
                     {
                         role: 'user',
-                        content: prompt
+                        content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
+                            followUp: followUpText,
+                            history: historyNorm
+                        })
                     }
                 ],
                 temperature: 0.7,
