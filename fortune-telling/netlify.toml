@@ -18,6 +18,13 @@
   NODE_VERSION = "18"
 
 # 重定向规则
+# 旧的 netlify.app 地址统一跳到正式域名（登录 Cookie 按域名隔离，必须只用一个域名）
+[[redirects]]
+  from = "https://fortune-telling-liuyao.netlify.app/*"
+  to = "https://fortune-telling-liuyao.com/:splat"
+  status = 301
+  force = true
+
 # 流式响应接口（使用 .mjs 模块）
 [[redirects]]
   from = "/api/interpret-stream"
