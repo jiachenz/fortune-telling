@@ -66,24 +66,31 @@ exports.handler = async (event, context) => {
     const historyNorm = normalizeHistory(history);
 
     const quota = require('../lib/quota.js');
+    const account = require('../lib/account.js');
+    const { callUpstream, safeRecordUsage } = require('../lib/usage.js');
     const { getStore, connectLambda } = require('@netlify/blobs');
     let quotaStore = null;
+    let accountStores = null;
     let ident = null;
+    let verdict = null;
     try {
         connectLambda(event);
         quotaStore = quota.blobsStore(getStore);
+        accountStores = account.blobsStores(getStore);
         const hdrs = event.headers || {};
+        const user = await account.safeResolveQuotaUser(accountStores, hdrs.cookie || hdrs.Cookie);
         ident = quota.buildIdentity({
             deviceId,
             ip: hdrs['x-nf-client-connection-ip'] || (hdrs['x-forwarded-for'] || '').split(',')[0].trim(),
             castAt: hexagramData.castAt,
-            followUp: followUpText
+            followUp: followUpText,
+            user
         });
     } catch (e) {
         console.error('限额初始化失败，放行:', e.message);
     }
     if (quotaStore && ident) {
-        const verdict = await quota.safeCheck(quotaStore, ident);
+        verdict = await quota.safeCheck(quotaStore, ident);
         if (!verdict.allowed) {
             await quota.safeRecordDenied(quotaStore, ident, verdict.kind, quota.blobsAnalyticsBump(getStore));
             return {
@@ -93,7 +100,8 @@ exports.handler = async (event, context) => {
                     success: false,
                     error: verdict.message,
                     quotaExceeded: true,
-                    kind: verdict.kind
+                    kind: verdict.kind,
+                    tier: verdict.tier
                 })
             };
         }
@@ -103,28 +111,26 @@ exports.handler = async (event, context) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        const response = await fetch(`${API_BASE}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
-            },
+        const messages = [
+            { role: 'system', content: buildSystemPrompt({ followUp: followUpText }) },
+            {
+                role: 'user',
+                content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
+                    followUp: followUpText,
+                    history: historyNorm
+                })
+            }
+        ];
+        const response = await callUpstream({
+            apiBase: API_BASE,
+            apiKey: API_KEY,
             signal: controller.signal,
-            body: JSON.stringify({
+            payload: {
                 model: MODEL_NAME,
-                messages: [
-                    { role: 'system', content: buildSystemPrompt({ followUp: followUpText }) },
-                    {
-                        role: 'user',
-                        content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
-                            followUp: followUpText,
-                            history: historyNorm
-                        })
-                    }
-                ],
+                messages,
                 temperature: 0.7,
                 max_tokens: 16000
-            })
+            }
         });
 
         clearTimeout(timeoutId);
@@ -140,7 +146,10 @@ exports.handler = async (event, context) => {
             throw new Error('AI 返回内容为空');
         }
 
-        if (quotaStore && ident) await quota.safeConsume(quotaStore, ident);
+        if (quotaStore && ident) {
+            await quota.safeConsume(quotaStore, ident, verdict, () => account.spendCredit(accountStores, ident.user.id));
+            await safeRecordUsage(quota.blobsAnalyticsAdd(getStore), { usage: data.usage, messages, output: content });
+        }
 
         return {
             statusCode: 200,

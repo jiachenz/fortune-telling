@@ -214,11 +214,21 @@ class RendererModule {
         `;
     }
 
-    showNotice(message) {
+    static actionButton(action) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quota-action';
+        btn.textContent = action.label;
+        btn.addEventListener('click', action.onClick);
+        return btn;
+    }
+
+    showNotice(message, action) {
         if (!this.aiResponseElement || !message) return;
         const el = document.createElement('div');
         el.className = 'quota-notice';
         el.textContent = message;
+        if (action) el.appendChild(RendererModule.actionButton(action));
         this.aiResponseElement.prepend(el);
     }
 

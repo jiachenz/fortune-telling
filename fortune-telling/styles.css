@@ -2508,3 +2508,282 @@ body {
         padding: 10px 12px 10px 16px;
     }
 }
+
+/* ========================================
+   账号：入口 / 登录 / 我的 / 卦历
+   ======================================== */
+
+.welcome-topbar {
+    align-self: stretch;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -20px;
+}
+
+.account-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    color: var(--gold);
+    background: rgba(15, 15, 26, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.account-btn[hidden] {
+    display: none;
+}
+
+.account-btn:hover {
+    background: rgba(212, 175, 55, 0.1);
+    border-color: var(--gold);
+}
+
+.account-btn.is-member {
+    color: var(--ink-dark);
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-color: transparent;
+}
+
+.account-modal-content,
+.history-modal-content {
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.account-referral-hint {
+    margin: -12px 0 18px;
+    padding: 8px 12px;
+    font-size: 13px;
+    text-align: center;
+    color: var(--primary-red);
+    background: rgba(196, 30, 58, 0.06);
+    border-radius: 8px;
+}
+
+.account-referral-hint[hidden],
+#account-code-group[hidden] {
+    display: none;
+}
+
+.account-msg {
+    min-height: 20px;
+    margin: -8px 0 0;
+    font-size: 13px;
+    color: var(--jade-green);
+}
+
+.account-msg.is-error {
+    color: var(--primary-red);
+}
+
+.account-fineprint {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.account-fineprint a {
+    color: var(--primary-red);
+}
+
+.account-email {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    word-break: break-all;
+}
+
+.account-tier {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.tier-badge {
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border: 1px solid rgba(90, 90, 90, 0.4);
+    border-radius: 50px;
+}
+
+.tier-badge.is-member {
+    color: #6b4e00;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-color: transparent;
+}
+
+.account-usage {
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-primary);
+    background: rgba(212, 175, 55, 0.1);
+    border-radius: 8px;
+}
+
+.account-usage b {
+    color: var(--primary-red);
+}
+
+.account-section {
+    margin-bottom: 18px;
+}
+
+.account-section > label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.account-sub {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.account-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.account-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    border: 2px solid rgba(196, 30, 58, 0.2);
+    border-radius: 8px;
+    background: white;
+}
+
+.account-row input:focus {
+    outline: none;
+    border-color: var(--primary-red);
+}
+
+.account-row .primary-btn.small,
+.account-row .secondary-btn.small {
+    padding: 10px 16px;
+    white-space: nowrap;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-empty {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 16px 0;
+}
+
+.history-item {
+    display: flex;
+    align-items: stretch;
+    background: white;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.history-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    font-family: 'Noto Serif SC', serif;
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.history-open:hover {
+    background: rgba(212, 175, 55, 0.08);
+}
+
+.history-hex {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--primary-red);
+}
+
+.history-question {
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.history-delete {
+    width: 40px;
+    font-size: 20px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(212, 175, 55, 0.2);
+    cursor: pointer;
+}
+
+.history-delete:hover {
+    color: var(--primary-red);
+    background: rgba(196, 30, 58, 0.06);
+}
+
+.quota-action {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #fff;
+    background: var(--primary-red);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+}
+
+.followup-limit .quota-action {
+    margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+    .welcome-topbar {
+        margin-bottom: -12px;
+    }
+
+    .account-modal-content,
+    .history-modal-content {
+        padding: 32px 20px;
+    }
+}

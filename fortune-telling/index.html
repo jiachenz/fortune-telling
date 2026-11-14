@@ -6,27 +6,27 @@
     <title>周易六爻 · 铜钱占卜 | 知几而决</title>
 
     <!-- ================================================================
-         分享 / SEO 元信息（正式域名：https://fortune-telling-liuyao.netlify.app）
+         分享 / SEO 元信息（正式域名：https://fortune-telling-liuyao.com）
          如更换域名，请同步修改下方 canonical / og:url / og:image / twitter:image
          ================================================================ -->
     <meta name="description" content="周易六爻铜钱占卜 · 知几而决。看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
     <meta name="keywords" content="周易,六爻,铜钱占卜,算命,卜卦,易经,占卜">
-    <link rel="canonical" href="https://fortune-telling-liuyao.netlify.app/">
+    <link rel="canonical" href="https://fortune-telling-liuyao.com/">
 
     <!-- Open Graph（微信、朋友圈、Facebook 等通用） -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="周易六爻 · 铜钱占卜">
     <meta property="og:title" content="周易六爻 · 铜钱占卜 | 知几而决">
     <meta property="og:description" content="看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
-    <meta property="og:url" content="https://fortune-telling-liuyao.netlify.app/">
-    <meta property="og:image" content="https://fortune-telling-liuyao.netlify.app/assets/daily-yi.png">
+    <meta property="og:url" content="https://fortune-telling-liuyao.com/">
+    <meta property="og:image" content="https://fortune-telling-liuyao.com/assets/daily-yi.png">
     <meta property="og:image:alt" content="周易六爻 · 铜钱占卜">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="周易六爻 · 铜钱占卜 | 知几而决">
     <meta name="twitter:description" content="看见变化，理清处境，做出更清醒的选择。免费在线摇卦，AI 智能解卦。">
-    <meta name="twitter:image" content="https://fortune-telling-liuyao.netlify.app/assets/daily-yi.png">
+    <meta name="twitter:image" content="https://fortune-telling-liuyao.com/assets/daily-yi.png">
 
     <!-- Favicon（内联 SVG，无需额外文件） -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%AF%3C/text%3E%3C/svg%3E">
@@ -49,6 +49,13 @@
         <!-- 页面1: 欢迎页面 -->
         <section id="welcome-page" class="page active">
             <div class="content-wrapper">
+                <div class="welcome-topbar">
+                    <button id="account-btn" type="button" class="account-btn" hidden>
+                        <span class="account-btn-icon" aria-hidden="true">◎</span>
+                        <span id="account-btn-label">登录</span>
+                    </button>
+                </div>
+
                 <div id="invite-banner" class="invite-banner" hidden>
                     <span class="invite-banner-icon" aria-hidden="true">✉</span>
                     <div class="invite-banner-text">
@@ -379,6 +386,73 @@
             </div>
         </div>
 
+        <!-- 登录 / 我的 弹窗 -->
+        <div id="account-modal" class="modal">
+            <div class="modal-content account-modal-content">
+                <button type="button" class="share-modal-close" id="account-modal-close" aria-label="关闭">×</button>
+
+                <div id="account-login-view">
+                    <h3>登录 / 注册</h3>
+                    <p class="modal-hint">用邮箱验证码登录，无需密码。登录后 AI 解卦次数更多，起过的卦自动存进卦历，换设备也能看。</p>
+                    <p class="account-referral-hint" id="account-referral-hint" hidden>好友邀请你：注册后双方各得 3 天会员</p>
+                    <div class="input-group">
+                        <label for="account-email">邮箱</label>
+                        <input type="email" id="account-email" autocomplete="email" placeholder="you@example.com" maxlength="254">
+                    </div>
+                    <div class="input-group" id="account-code-group" hidden>
+                        <label for="account-code">验证码</label>
+                        <input type="text" id="account-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
+                    </div>
+                    <p class="account-msg" id="account-login-msg" aria-live="polite"></p>
+                    <div class="modal-buttons">
+                        <button id="account-send-btn" type="button" class="secondary-btn small">获取验证码</button>
+                        <button id="account-verify-btn" type="button" class="primary-btn small" hidden>登录</button>
+                    </div>
+                    <p class="account-fineprint">没收到？看看垃圾邮件箱。登录即表示同意<a href="privacy.html" target="_blank" rel="noopener">隐私说明</a>。</p>
+                </div>
+
+                <div id="account-profile-view" hidden>
+                    <h3>我的</h3>
+                    <p class="account-email" id="account-email-display"></p>
+                    <div class="account-tier" id="account-tier"></div>
+                    <div class="account-usage" id="account-usage"></div>
+
+                    <div class="account-section">
+                        <label for="redeem-input">兑换码</label>
+                        <div class="account-row">
+                            <input type="text" id="redeem-input" placeholder="GUA-XXXX-XXXX" maxlength="40" autocomplete="off">
+                            <button id="redeem-btn" type="button" class="primary-btn small">兑换</button>
+                        </div>
+                        <p class="account-msg" id="redeem-msg" aria-live="polite"></p>
+                    </div>
+
+                    <div class="account-section">
+                        <label for="referral-link-input">邀请好友</label>
+                        <p class="account-sub" id="referral-desc"></p>
+                        <div class="account-row">
+                            <input type="text" id="referral-link-input" readonly>
+                            <button id="referral-link-copy" type="button" class="secondary-btn small">复制</button>
+                        </div>
+                    </div>
+
+                    <div class="modal-buttons">
+                        <button id="history-open-btn" type="button" class="primary-btn small">我的卦历</button>
+                        <button id="account-logout-btn" type="button" class="secondary-btn small">退出登录</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 卦历 弹窗 -->
+        <div id="history-modal" class="modal">
+            <div class="modal-content history-modal-content">
+                <button type="button" class="share-modal-close" id="history-modal-close" aria-label="关闭">×</button>
+                <h3>我的卦历</h3>
+                <p class="modal-hint">登录后起的卦自动保存，最多保留最近 200 条</p>
+                <div class="history-list" id="history-list"></div>
+            </div>
+        </div>
+
         <!-- 打卡里程碑 弹窗 -->
         <div id="streak-modal" class="modal">
             <div class="modal-content" style="text-align:center;">
@@ -407,6 +481,7 @@
     <script src="js/png-export.js"></script>
     <script src="js/share.js"></script>
     <script src="js/daily-tips.js"></script>
+    <script src="js/account.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

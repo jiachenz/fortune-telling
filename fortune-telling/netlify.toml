@@ -11,13 +11,20 @@
   node_bundler = "esbuild"
   # 必须外置，否则打包后拿不到 Blobs 运行时上下文（siteID/token）
   external_node_modules = ["@netlify/blobs"]
-  included_files = ["js/prompt.js", "netlify/lib/prompt.js", "netlify/lib/quota.js"]
+  included_files = ["js/prompt.js", "netlify/lib/*.js"]
 
 # 指定 Node.js 18（内置 fetch API）
 [build.environment]
   NODE_VERSION = "18"
 
 # 重定向规则
+# 旧的 netlify.app 地址统一跳到正式域名（登录 Cookie 按域名隔离，必须只用一个域名）
+[[redirects]]
+  from = "https://fortune-telling-liuyao.netlify.app/*"
+  to = "https://fortune-telling-liuyao.com/:splat"
+  status = 301
+  force = true
+
 # 流式响应接口（使用 .mjs 模块）
 [[redirects]]
   from = "/api/interpret-stream"
@@ -36,5 +43,14 @@
 # MODEL_NAME = "Pro/zai-org/GLM-4.7"
 # STATS_TOKEN = "运营看板密钥，访问 /stats.html 时使用"
 # QUOTA_READINGS_PER_DAY = "2"    匿名用户每天 AI 首解次数
-# QUOTA_FOLLOWUPS_PER_CAST = "1"  同一卦免费追问次数
+# QUOTA_FOLLOWUPS_PER_CAST = "1"  匿名用户同一卦追问次数
+# QUOTA_USER_READINGS_PER_DAY / QUOTA_USER_FOLLOWUPS_PER_CAST      登录用户（默认 3 / 3）
+# QUOTA_MEMBER_READINGS_PER_DAY / QUOTA_MEMBER_FOLLOWUPS_PER_CAST  会员（默认 20 / 10）
 # QUOTA_DISABLED = "1"            关闭限额（调试用）
+# RESEND_API_KEY = "re_..."       验证码发信
+# MAIL_FROM = "周易六爻 <noreply@fortune-telling-liuyao.com>"  发件人，域名需在 Resend 验证
+# AUTH_SECRET = "随机长字符串"     验证码与邮箱索引的 HMAC 密钥，设定后不要更改
+# ADMIN_TOKEN = "管理后台密钥"     访问 /admin.html；未设置时使用 STATS_TOKEN
+# PRICE_INPUT_PER_M = "0.25"      模型输入单价（美元 / 百万 token），看板成本估算用
+# PRICE_OUTPUT_PER_M = "1.5"      模型输出单价（含思考 token）
+# USD_CNY = "7.2"                 汇率

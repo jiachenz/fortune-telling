@@ -27,6 +27,7 @@ class ApiModule {
             success: false,
             quotaExceeded: true,
             kind: data.kind,
+            tier: data.tier,
             error: data.error || '今日免费次数已用完'
         };
     }
