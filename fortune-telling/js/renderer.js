@@ -53,12 +53,31 @@ class RendererModule {
         });
     }
 
+    static normalizeMarkdown(text) {
+        let out = String(text == null ? '' : text).replace(/\r\n?/g, '\n');
+        // 模型偶尔把整篇包进 ```markdown 代码块，流式时结尾围栏可能还没到
+        out = out.replace(/^\s*```(?:markdown|md)?[ \t]*\n/i, '');
+        out = out.replace(/\n[ \t]*```[ \t]*$/, '');
+        out = out.replace(/^([ \t]{0,3}#{1,6})(?=[^\s#])/gm, '$1 ');
+        return out;
+    }
+
+    // marked 对中文标点旁的 ** 常不识别（如 **「某某」**），兜底转成加粗
+    static boldLeftoverStars(html) {
+        return String(html || '').replace(/\*\*([^*<>\n]+?)\*\*/g, '<strong>$1</strong>');
+    }
+
+    static emphasizeYiJi(html) {
+        return String(html || '').replace(/<li>(\s*(?:<p>)?)(宜|忌|不宜)([：:])/g, '<li>$1<strong>$2</strong>$3');
+    }
+
     parseMarkdown(text, sanitize) {
-        const source = sanitize ? this.closeUnmatchedMarkdown(text) : (text || '');
+        const normalized = RendererModule.normalizeMarkdown(text);
+        const source = sanitize ? this.closeUnmatchedMarkdown(normalized) : normalized;
         const html = typeof marked !== 'undefined'
             ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(source))
             : this.escapeHtml(source).replace(/\n/g, '<br>');
-        return this.emphasizeGanzhiLabel(html);
+        return this.emphasizeGanzhiLabel(RendererModule.emphasizeYiJi(RendererModule.boldLeftoverStars(html)));
     }
 
     yaoClass(yao) {
@@ -214,7 +233,6 @@ class RendererModule {
         if (!this.streamContainer) return;
         this.streamBuffer += chunk;
         this.streamContainer.innerHTML = this.parseMarkdown(this.streamBuffer);
-        this.streamContainer.scrollIntoView({ block: 'nearest' });
     }
 
     finishStreamRender() {
