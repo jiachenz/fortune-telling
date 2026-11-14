@@ -21,7 +21,7 @@ function getLimits() {
     return {
         enabled: process.env.QUOTA_DISABLED !== '1',
         readingsPerDay: intFromEnv('QUOTA_READINGS_PER_DAY', 2),
-        followupsPerCast: intFromEnv('QUOTA_FOLLOWUPS_PER_CAST', 3)
+        followupsPerCast: intFromEnv('QUOTA_FOLLOWUPS_PER_CAST', 1)
     };
 }
 

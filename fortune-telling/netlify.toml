@@ -36,5 +36,5 @@
 # MODEL_NAME = "Pro/zai-org/GLM-4.7"
 # STATS_TOKEN = "运营看板密钥，访问 /stats.html 时使用"
 # QUOTA_READINGS_PER_DAY = "2"    匿名用户每天 AI 首解次数
-# QUOTA_FOLLOWUPS_PER_CAST = "3"  同一卦免费追问次数
+# QUOTA_FOLLOWUPS_PER_CAST = "1"  同一卦免费追问次数
 # QUOTA_DISABLED = "1"            关闭限额（调试用）
