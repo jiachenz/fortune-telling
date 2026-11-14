@@ -67,13 +67,17 @@ class RendererModule {
         return String(html || '').replace(/\*\*([^*<>\n]+?)\*\*/g, '<strong>$1</strong>');
     }
 
+    static emphasizeYiJi(html) {
+        return String(html || '').replace(/<li>(\s*(?:<p>)?)(宜|忌|不宜)([：:])/g, '<li>$1<strong>$2</strong>$3');
+    }
+
     parseMarkdown(text, sanitize) {
         const normalized = RendererModule.normalizeMarkdown(text);
         const source = sanitize ? this.closeUnmatchedMarkdown(normalized) : normalized;
         const html = typeof marked !== 'undefined'
             ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(source))
             : this.escapeHtml(source).replace(/\n/g, '<br>');
-        return this.emphasizeGanzhiLabel(RendererModule.boldLeftoverStars(html));
+        return this.emphasizeGanzhiLabel(RendererModule.emphasizeYiJi(RendererModule.boldLeftoverStars(html)));
     }
 
     yaoClass(yao) {

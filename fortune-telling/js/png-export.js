@@ -90,7 +90,7 @@ class PngExportModule {
         let html = typeof marked !== 'undefined'
             ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(source))
             : this.escapeHtml(source).replace(/\n/g, '<br>');
-        if (R) html = R.boldLeftoverStars(html);
+        if (R) html = R.emphasizeYiJi(R.boldLeftoverStars(html));
         return this.emphasizeGanzhiLabel(html);
     }
 
