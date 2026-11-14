@@ -282,7 +282,7 @@ class ApiModule {
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.7,
-                    max_tokens: 8000
+                    max_tokens: 16000
                 })
             });
 
@@ -364,7 +364,7 @@ ${yaoDetails}
 
     generateLocalFollowUp(hexagramData, userQuestion, followUp) {
         const name = (hexagramData.main && hexagramData.main.name) || '此卦';
-        return `## 针对补充\n\n关于「${followUp}」：这件事仍落在 **「${name}」** 里，需要把新条件收进原问「${userQuestion}」来看，而不是另起一卦，更不宜把补充条件写成终局。\n\n## 行动调整\n\n- 先确认这个条件有没有改变你真正要问的那一层\n- 再按本卦处境、动爻转折来微调下一步，留一点观察的余地`;
+        return `## 直接回答\n\n关于「${followUp}」：这件事仍落在 **「${name}」** 里，需要把新条件收进原问「${userQuestion}」来看，而不是另起一卦，更不宜把补充条件写成终局。\n\n## 行动调整\n\n- 先确认这个条件有没有改变你真正要问的那一层\n- 再按本卦处境、动爻转折来微调下一步，留一点观察的余地`;
     }
 }
 

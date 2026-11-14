@@ -260,7 +260,7 @@ app.post('/api/interpret', async (req, res) => {
                 model: API_CONFIG.model,
                 messages: interpretMessages(req.body),
                 temperature: 0.7,
-                max_tokens: 8000
+                max_tokens: 16000
             })
         });
 
@@ -314,7 +314,7 @@ app.post('/api/interpret-stream', async (req, res) => {
                 model: API_CONFIG.model,
                 messages: interpretMessages(req.body),
                 temperature: 0.7,
-                max_tokens: 8000,
+                max_tokens: 16000,
                 stream: true
             })
         });
