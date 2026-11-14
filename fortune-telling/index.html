@@ -136,6 +136,11 @@
                     <h2 class="page-title">掷铜钱</h2>
                     <p class="page-subtitle">第 <span id="current-throw">1</span> 爻 / 共六爻</p>
                     <p class="page-guide">少阳、少阴为稳定爻；老阳、老阴为动爻，动爻才会出变卦</p>
+                    <label class="quick-cast-toggle">
+                        <input type="checkbox" id="quick-cast-input">
+                        <span class="quick-cast-switch" aria-hidden="true"></span>
+                        <span>快速起卦 · 一次掷完六爻</span>
+                    </label>
                 </div>
 
                 <div id="shake-guide" class="shake-guide" hidden>
@@ -179,6 +184,11 @@
                     </div>
                 </div>
 
+                <p class="coin-coach" id="coin-coach" hidden>
+                    <span class="coin-coach-arrow" aria-hidden="true">↑</span>
+                    <span id="coin-coach-text">点一下铜钱，掷出第一爻</span>
+                </p>
+
                 <div class="throw-result" id="throw-result">
                     <span class="result-text">点击下方按钮掷出铜钱</span>
                     <p class="throw-hint">少阳、少阴为稳定爻；老阳、老阴为动爻，动爻才会出变卦</p>
@@ -188,19 +198,18 @@
                     <span class="btn-text">掷铜钱</span>
                 </button>
                 <!-- 已完成的爻显示 -->
-                <div class="yao-progress">
-                    <div class="yao-line" id="yao-6"></div>
-                    <div class="yao-line" id="yao-5"></div>
-                    <div class="yao-line" id="yao-4"></div>
-                    <div class="yao-line" id="yao-3"></div>
-                    <div class="yao-line" id="yao-2"></div>
-                    <div class="yao-line" id="yao-1"></div>
+                <div class="yao-progress" aria-label="六爻进度，从下往上排">
+                    <div class="yao-row"><span class="yao-row-label">上爻</span><div class="yao-line" id="yao-6"></div><span class="yao-row-num">6</span></div>
+                    <div class="yao-row"><span class="yao-row-label">五爻</span><div class="yao-line" id="yao-5"></div><span class="yao-row-num">5</span></div>
+                    <div class="yao-row"><span class="yao-row-label">四爻</span><div class="yao-line" id="yao-4"></div><span class="yao-row-num">4</span></div>
+                    <div class="yao-row"><span class="yao-row-label">三爻</span><div class="yao-line" id="yao-3"></div><span class="yao-row-num">3</span></div>
+                    <div class="yao-row"><span class="yao-row-label">二爻</span><div class="yao-line" id="yao-2"></div><span class="yao-row-num">2</span></div>
+                    <div class="yao-row"><span class="yao-row-label">初爻</span><div class="yao-line" id="yao-1"></div><span class="yao-row-num">1</span></div>
                 </div>
-                
-                <div class="yao-labels">
-                    <span>上爻</span>
-                    <span>初爻</span>
-                </div>
+
+                <p class="yao-direction">
+                    <span aria-hidden="true">↑</span> 卦从下往上画：第 1 次掷出的是最下面的「初爻」，第 6 次是最上面的「上爻」
+                </p>
             </div>
         </section>
 
@@ -286,6 +295,12 @@
                 <span aria-hidden="true">◈</span> 分享给朋友
             </button>
         </div>
+
+        <!-- 解读目录：同样放在 .page 之外，保证 fixed 定位 -->
+        <nav id="reading-toc" class="reading-toc" aria-label="解读目录" hidden>
+            <span class="reading-toc-title">目录</span>
+            <div class="reading-toc-list" id="reading-toc-list"></div>
+        </nav>
 
         <!-- API配置弹窗 -->
         <div id="api-modal" class="modal">
@@ -388,6 +403,7 @@
     <script src="js/coin.js"></script>
     <script src="js/api.js"></script>
     <script src="js/renderer.js"></script>
+    <script src="js/toc.js"></script>
     <script src="js/png-export.js"></script>
     <script src="js/share.js"></script>
     <script src="js/daily-tips.js"></script>

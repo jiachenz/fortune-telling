@@ -10,6 +10,16 @@
 
 const DEFAULT_MAX_FOLLOWUPS = 5;
 const READING_GUIDE_KEY = 'fortune_reading_guide_dismissed';
+const COIN_COACH_KEY = 'fortune_coin_coach_seen';
+const QUICK_CAST_KEY = 'fortune_quick_cast';
+
+function readFlag(key) {
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+}
+
+function writeFlag(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
 
 const state = {
     currentPage: 'welcome',
@@ -116,6 +126,7 @@ function setupShakeEvent() {
 let coinModule = null;
 let apiModule = null;
 let rendererModule = null;
+let tocModule = null;
 let pngExportModule = null;
 let dailyTipsModule = null;
 let shareModule = null;
@@ -233,7 +244,8 @@ function initModules() {
         throwBtn: elements.throwBtn,
         currentThrow: elements.currentThrow,
         defaultHintText: defaultHint,
-        onComplete: handleHexagramComplete
+        onComplete: handleHexagramComplete,
+        onThrowStart: hideCoinCoach
     });
     
     // 初始化 API 模块
@@ -251,6 +263,14 @@ function initModules() {
         followupThread: elements.followupThread
     });
     
+    tocModule = new ReadingTocModule();
+    tocModule.init({
+        nav: document.getElementById('reading-toc'),
+        list: document.getElementById('reading-toc-list'),
+        source: elements.aiResponse,
+        followupSection: elements.followupSection
+    });
+
     // 初始化截图导出模块
     pngExportModule = new PngExportModule();
 
@@ -294,6 +314,7 @@ function showPage(pageName) {
     // 贴底浮动分享条只在结果页出现
     const stickyBar = document.getElementById('share-sticky-bar');
     if (stickyBar) stickyBar.hidden = (pageName !== 'result');
+    if (tocModule && pageName !== 'result') tocModule.reset();
 
     state.currentPage = pageName;
 }
@@ -317,10 +338,48 @@ function handleStartClick() {
     }
     
     showPage('coin');
+    setupCoinCoach();
+}
+
+// 首次使用显示「点铜钱」提示；每卦第一掷之前铜钱都会轻微呼吸提示可点
+function setupCoinCoach() {
+    const container = document.querySelector('.coins-container');
+    if (container) container.classList.add('is-awaiting');
+    const coach = document.getElementById('coin-coach');
+    if (!coach) return;
+    const text = document.getElementById('coin-coach-text');
+    if (text) text.textContent = isMobileDevice ? '点一下铜钱，或摇一摇手机，掷出第一爻' : '点一下铜钱，掷出第一爻';
+    coach.hidden = readFlag(COIN_COACH_KEY);
+}
+
+function hideCoinCoach() {
+    const container = document.querySelector('.coins-container');
+    if (container) container.classList.remove('is-awaiting');
+    const coach = document.getElementById('coin-coach');
+    if (coach && !coach.hidden) {
+        coach.hidden = true;
+        writeFlag(COIN_COACH_KEY, true);
+    }
 }
 
 function handleThrowClick() {
-    coinModule.throwCoins();
+    if (coinModule.autoThrowing) return;
+    if (coinModule.fast) {
+        coinModule.throwAll();
+    } else {
+        coinModule.throwCoins();
+    }
+}
+
+function setupQuickCast() {
+    const input = document.getElementById('quick-cast-input');
+    if (!input) return;
+    input.checked = readFlag(QUICK_CAST_KEY);
+    coinModule.setFast(input.checked);
+    input.addEventListener('change', () => {
+        writeFlag(QUICK_CAST_KEY, input.checked);
+        coinModule.setFast(input.checked);
+    });
 }
 
 async function handleHexagramComplete(hexagramData) {
@@ -450,6 +509,7 @@ function resetFollowUpState() {
     state.followUpCount = 0;
     state.followUpBusy = false;
     if (rendererModule) rendererModule.resetFollowUpThread();
+    if (tocModule) tocModule.reset();
     if (elements.followupSection) {
         elements.followupSection.hidden = true;
         elements.followupSection.classList.remove('is-busy', 'is-capped');
@@ -469,6 +529,7 @@ function beginFollowUpSession(interpretation) {
     elements.followupSection.hidden = false;
     elements.followupSection.classList.remove('is-busy', 'is-capped');
     updateFollowUpLimit();
+    if (tocModule) tocModule.build();
 }
 
 function updateFollowUpLimit() {
@@ -998,6 +1059,7 @@ async function init() {
     
     initModules();
     bindEvents();
+    setupQuickCast();
     addShakeStyle();
 
     // 裂变 & 留存初始化：访问计数、来源落地、邀请落地、打卡 chip
