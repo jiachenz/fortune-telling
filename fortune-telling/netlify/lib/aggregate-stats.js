@@ -6,8 +6,30 @@
 const EVENTS = [
     'result_view', 'share_open', 'share_click', 'card_generated', 'landing',
     // 免费次数触顶人数（每设备每天每类只记一次，服务端写入）
-    'quota_hit_reading', 'quota_hit_followup'
+    'quota_hit_reading', 'quota_hit_followup',
+    // 账号
+    'signup', 'referral_signup', 'redeem',
+    // 模型用量（服务端写入，tokens_* 为 token 数之和）
+    'ai_calls', 'ai_calls_est', 'tokens_in', 'tokens_out'
 ];
+
+function floatFromEnv(name, fallback) {
+    const n = parseFloat(process.env[name]);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+function pricing() {
+    return {
+        inputPerM: floatFromEnv('PRICE_INPUT_PER_M', 0.25),
+        outputPerM: floatFromEnv('PRICE_OUTPUT_PER_M', 1.5),
+        usdCny: floatFromEnv('USD_CNY', 7.2)
+    };
+}
+
+function costCny(tokensIn, tokensOut, p) {
+    const usd = (tokensIn * p.inputPerM + tokensOut * p.outputPerM) / 1e6;
+    return Math.round(usd * p.usdCny * 100) / 100;
+}
 
 function rate(num, den) {
     if (!den) return null;
@@ -92,19 +114,52 @@ function aggregateFromMap(map) {
         ? Math.round(shareRate * conversionRate * 1000) / 1000
         : null;
 
+    const p = pricing();
+    const onDay = (name, date) => (eventByDay[name] || {})[date] || 0;
+
     const series = dates.map((date) => ({
         date,
         divinations: divByDay[date] || 0,
-        result_view: (eventByDay.result_view || {})[date] || 0,
-        share_click: (eventByDay.share_click || {})[date] || 0,
-        landing: (eventByDay.landing || {})[date] || 0,
-        quota_hit_reading: (eventByDay.quota_hit_reading || {})[date] || 0,
-        quota_hit_followup: (eventByDay.quota_hit_followup || {})[date] || 0
+        result_view: onDay('result_view', date),
+        share_click: onDay('share_click', date),
+        landing: onDay('landing', date),
+        quota_hit_reading: onDay('quota_hit_reading', date),
+        quota_hit_followup: onDay('quota_hit_followup', date),
+        signup: onDay('signup', date),
+        redeem: onDay('redeem', date),
+        ai_calls: onDay('ai_calls', date),
+        cost_cny: costCny(onDay('tokens_in', date), onDay('tokens_out', date), p)
     }));
 
     const quotaHits = {
-        readingToday: (eventByDay.quota_hit_reading || {})[today] || 0,
-        followupToday: (eventByDay.quota_hit_followup || {})[today] || 0
+        readingToday: onDay('quota_hit_reading', today),
+        followupToday: onDay('quota_hit_followup', today)
+    };
+
+    const accounts = {
+        signupToday: onDay('signup', today),
+        signupTotal: eventTotals.signup || 0,
+        referralTotal: eventTotals.referral_signup || 0,
+        redeemToday: onDay('redeem', today),
+        redeemTotal: eventTotals.redeem || 0
+    };
+
+    const usageToday = {
+        calls: onDay('ai_calls', today),
+        estimatedCalls: onDay('ai_calls_est', today),
+        tokensIn: onDay('tokens_in', today),
+        tokensOut: onDay('tokens_out', today)
+    };
+    const usageTotal = {
+        calls: eventTotals.ai_calls || 0,
+        estimatedCalls: eventTotals.ai_calls_est || 0,
+        tokensIn: eventTotals.tokens_in || 0,
+        tokensOut: eventTotals.tokens_out || 0
+    };
+    const usage = {
+        pricing: p,
+        today: Object.assign(usageToday, { costCny: costCny(usageToday.tokensIn, usageToday.tokensOut, p) }),
+        total: Object.assign(usageTotal, { costCny: costCny(usageTotal.tokensIn, usageTotal.tokensOut, p) })
     };
 
     return {
@@ -116,6 +171,8 @@ function aggregateFromMap(map) {
         },
         events: eventTotals,
         quotaHits,
+        accounts,
+        usage,
         cards,
         refs,
         kpis: {

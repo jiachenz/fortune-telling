@@ -150,47 +150,105 @@ const {
 } = require('../netlify/lib/prompt.js');
 
 const quota = require('../netlify/lib/quota.js');
+const account = require('../netlify/lib/account.js');
+const { createMailer } = require('../netlify/lib/mailer.js');
+const { callUpstream, safeRecordUsage } = require('../netlify/lib/usage.js');
 
-const localQuotaStore = {
-    get: async (key) => {
+// 与 Blobs 适配器同形状的本地存储，section 对应 .local-data.json 里的一个对象
+function localStore(section) {
+    const read = () => readLocalData()[section] || {};
+    const update = (fn) => {
         const data = readLocalData();
-        return (data.quota && data.quota[key]) || null;
-    },
-    set: async (key, value) => {
-        const data = readLocalData();
-        data.quota = data.quota || {};
-        data.quota[key] = value;
+        data[section] = data[section] || {};
+        const result = fn(data[section]);
         writeLocalData(data);
-    }
-};
+        return result;
+    };
+    return {
+        get: async (key) => read()[key] || null,
+        set: async (key, value) => update((s) => { s[key] = value; }),
+        del: async (key) => update((s) => { delete s[key]; }),
+        create: async (key, value) => update((s) => {
+            if (s[key]) return false;
+            s[key] = value;
+            return true;
+        }),
+        list: async (prefix) => Object.keys(read()).filter((k) => k.startsWith(prefix))
+    };
+}
 
-// 通过则返回 ident（成功后用于记账）；超额时直接响应 429 并返回 null
+const localQuotaStore = localStore('quota');
+const localAccountStores = { accounts: localStore('accounts'), history: localStore('history') };
+
+async function localAnalyticsAdd(entries) {
+    const data = readLocalData();
+    data.analytics = data.analytics || {};
+    entries.forEach(([k, n]) => { data.analytics[k] = (data.analytics[k] || 0) + (n == null ? 1 : n); });
+    writeLocalData(data);
+}
+
+// 通过则返回 { ident, verdict }（成功后用于记账）；超额时直接响应 429 并返回 null
 async function guardQuota(req, res) {
     const body = req.body || {};
+    const user = await account.safeResolveQuotaUser(localAccountStores, req.headers.cookie);
     const ident = quota.buildIdentity({
         deviceId: body.deviceId,
         ip: req.ip,
         castAt: body.hexagramData && body.hexagramData.castAt,
-        followUp: normalizeFollowUp(body.followUp)
+        followUp: normalizeFollowUp(body.followUp),
+        user
     });
     const verdict = await quota.safeCheck(localQuotaStore, ident);
     if (!verdict.allowed) {
-        await quota.safeRecordDenied(localQuotaStore, ident, verdict.kind, async (keys) => {
-            const data = readLocalData();
-            data.analytics = data.analytics || {};
-            keys.forEach((k) => { data.analytics[k] = (data.analytics[k] || 0) + 1; });
-            writeLocalData(data);
-        });
+        await quota.safeRecordDenied(localQuotaStore, ident, verdict.kind, (keys) => localAnalyticsAdd(keys.map((k) => [k, 1])));
         res.status(429).json({
             success: false,
             error: verdict.message,
             quotaExceeded: true,
-            kind: verdict.kind
+            kind: verdict.kind,
+            tier: verdict.tier
         });
         return null;
     }
-    return ident;
+    return { ident, verdict };
 }
+
+function consumeQuota(guard) {
+    const { ident, verdict } = guard;
+    return quota.safeConsume(localQuotaStore, ident, verdict, () => account.spendCredit(localAccountStores, ident.user.id));
+}
+
+// 账号接口（本地版）：未配置 RESEND_API_KEY 时验证码打印在控制台
+app.post('/api/account', async (req, res) => {
+    const body = req.body || {};
+    const day = shanghaiDate();
+    const result = await account.handle({
+        action: body.action,
+        body,
+        cookie: req.headers.cookie,
+        ip: req.ip,
+        deviceId: body.deviceId,
+        secure: false
+    }, localAccountStores, {
+        sendMail: createMailer({ allowConsole: true }),
+        quotaStore: localQuotaStore,
+        bump: (names) => localAnalyticsAdd(names.flatMap((n) => [[`ev:${n}:total`, 1], [`ev:${n}:${day}`, 1]]))
+    });
+    if (result.cookie) res.set('Set-Cookie', result.cookie);
+    res.set('Cache-Control', 'no-store');
+    res.status(result.status).json(result.body);
+});
+
+// 管理接口（本地版）：未配置 ADMIN_TOKEN / STATS_TOKEN 时放行
+app.post('/api/admin', async (req, res) => {
+    if (!account.adminAuthorized(req.headers.authorization, true)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const body = req.body || {};
+    const result = await account.handleAdmin({ action: body.action, body }, localAccountStores);
+    res.set('Cache-Control', 'no-store');
+    res.status(result.status).json(result.body);
+});
 
 function interpretMessages(body) {
     const followUp = normalizeFollowUp(body && body.followUp);
@@ -251,23 +309,20 @@ app.post('/api/interpret', async (req, res) => {
         });
     }
 
-    const ident = await guardQuota(req, res);
-    if (!ident) return;
+    const guard = await guardQuota(req, res);
+    if (!guard) return;
 
     try {
-        // 调用 AI API
-        const response = await fetch(`${API_CONFIG.apiBase}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_CONFIG.apiKey}`
-            },
-            body: JSON.stringify({
+        const messages = interpretMessages(req.body);
+        const response = await callUpstream({
+            apiBase: API_CONFIG.apiBase,
+            apiKey: API_CONFIG.apiKey,
+            payload: {
                 model: API_CONFIG.model,
-                messages: interpretMessages(req.body),
+                messages,
                 temperature: 0.7,
                 max_tokens: 16000
-            })
+            }
         });
 
         if (!response.ok) {
@@ -278,7 +333,8 @@ app.post('/api/interpret', async (req, res) => {
 
         const data = await response.json();
         const interpretation = data.choices[0].message.content;
-        await quota.safeConsume(localQuotaStore, ident);
+        await consumeQuota(guard);
+        await safeRecordUsage(localAnalyticsAdd, { usage: data.usage, messages, output: interpretation });
 
         res.json({
             success: true,
@@ -306,23 +362,23 @@ app.post('/api/interpret-stream', async (req, res) => {
         return res.status(500).json({ error: 'API Key 未配置' });
     }
 
-    const ident = await guardQuota(req, res);
-    if (!ident) return;
+    const guard = await guardQuota(req, res);
+    if (!guard) return;
 
+    const messages = interpretMessages(req.body);
+    let output = '';
+    let usage = null;
     try {
-        const response = await fetch(`${API_CONFIG.apiBase}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_CONFIG.apiKey}`
-            },
-            body: JSON.stringify({
+        const response = await callUpstream({
+            apiBase: API_CONFIG.apiBase,
+            apiKey: API_CONFIG.apiKey,
+            payload: {
                 model: API_CONFIG.model,
-                messages: interpretMessages(req.body),
+                messages,
                 temperature: 0.7,
                 max_tokens: 16000,
                 stream: true
-            })
+            }
         });
 
         if (!response.ok) {
@@ -331,7 +387,7 @@ app.post('/api/interpret-stream', async (req, res) => {
             return res.status(500).json({ error: `API 请求失败: ${response.status}` });
         }
 
-        await quota.safeConsume(localQuotaStore, ident);
+        await consumeQuota(guard);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -363,8 +419,10 @@ app.post('/api/interpret-stream', async (req, res) => {
 
                 try {
                     const parsed = JSON.parse(data);
+                    if (parsed.usage) usage = parsed.usage;
                     const content = parsed.choices?.[0]?.delta?.content;
                     if (content) {
+                        output += content;
                         res.write(`data: ${JSON.stringify({ content })}\n\n`);
                     }
                 } catch (e) {
@@ -378,8 +436,10 @@ app.post('/api/interpret-stream', async (req, res) => {
             if (data !== '[DONE]') {
                 try {
                     const parsed = JSON.parse(data);
+                    if (parsed.usage) usage = parsed.usage;
                     const content = parsed.choices?.[0]?.delta?.content;
                     if (content) {
+                        output += content;
                         res.write(`data: ${JSON.stringify({ content })}\n\n`);
                     }
                 } catch (e) {
@@ -390,6 +450,7 @@ app.post('/api/interpret-stream', async (req, res) => {
 
         res.write('data: [DONE]\n\n');
         res.end();
+        await safeRecordUsage(localAnalyticsAdd, { usage, messages, output });
     } catch (error) {
         console.error('流式解卦请求失败:', error);
         if (!res.headersSent) {
@@ -397,6 +458,7 @@ app.post('/api/interpret-stream', async (req, res) => {
         }
         res.write(`data: ${JSON.stringify({ error: error.message || '流式解卦失败' })}\n\n`);
         res.end();
+        await safeRecordUsage(localAnalyticsAdd, { usage, messages, output });
     }
 });
 

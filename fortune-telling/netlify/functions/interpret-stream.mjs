@@ -15,6 +15,8 @@ const {
     normalizeFollowUp
 } = require('../lib/prompt.js');
 const quota = require('../lib/quota.js');
+const account = require('../lib/account.js');
+const { callUpstream, safeRecordUsage } = require('../lib/usage.js');
 const { getStore } = require('@netlify/blobs');
 
 export default async (request, context) => {
@@ -72,11 +74,14 @@ export default async (request, context) => {
     const historyNorm = normalizeHistory(history);
 
     const quotaStore = quota.blobsStore(getStore);
+    const accountStores = account.blobsStores(getStore);
+    const user = await account.safeResolveQuotaUser(accountStores, request.headers.get('cookie'));
     const ident = quota.buildIdentity({
         deviceId,
         ip: context && context.ip,
         castAt: hexagramData.castAt,
-        followUp: followUpText
+        followUp: followUpText,
+        user
     });
     const verdict = await quota.safeCheck(quotaStore, ident);
     if (!verdict.allowed) {
@@ -84,7 +89,8 @@ export default async (request, context) => {
         return new Response(JSON.stringify({
             error: verdict.message,
             quotaExceeded: true,
-            kind: verdict.kind
+            kind: verdict.kind,
+            tier: verdict.tier
         }), {
             status: 429,
             headers: {
@@ -96,31 +102,29 @@ export default async (request, context) => {
 
     try {
         // 调用 AI API（流式）
-        const response = await fetch(`${API_BASE}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
+        const messages = [
+            {
+                role: 'system',
+                content: buildSystemPrompt({ followUp: followUpText })
             },
-            body: JSON.stringify({
+            {
+                role: 'user',
+                content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
+                    followUp: followUpText,
+                    history: historyNorm
+                })
+            }
+        ];
+        const response = await callUpstream({
+            apiBase: API_BASE,
+            apiKey: API_KEY,
+            payload: {
                 model: MODEL_NAME,
-                messages: [
-                    {
-                        role: 'system',
-                        content: buildSystemPrompt({ followUp: followUpText })
-                    },
-                    {
-                        role: 'user',
-                        content: buildUserPrompt(hexagramData, userQuestion, yaoResults, {
-                            followUp: followUpText,
-                            history: historyNorm
-                        })
-                    }
-                ],
+                messages,
                 temperature: 0.7,
                 max_tokens: 100000,
-                stream: true  // 启用流式响应
-            })
+                stream: true
+            }
         });
 
         if (!response.ok) {
@@ -132,7 +136,7 @@ export default async (request, context) => {
             });
         }
 
-        await quota.safeConsume(quotaStore, ident);
+        await quota.safeConsume(quotaStore, ident, verdict, () => account.spendCredit(accountStores, user.id));
 
         // 创建 TransformStream 来处理流式数据
         const { readable, writable } = new TransformStream();
@@ -144,6 +148,8 @@ export default async (request, context) => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = ''; // 缓冲区处理不完整的数据
+            let output = '';
+            let usage = null;
 
             try {
                 while (true) {
@@ -169,8 +175,10 @@ export default async (request, context) => {
                             }
                             try {
                                 const parsed = JSON.parse(data);
+                                if (parsed.usage) usage = parsed.usage;
                                 const content = parsed.choices?.[0]?.delta?.content;
                                 if (content) {
+                                    output += content;
                                     // 发送 SSE 格式的数据
                                     await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                                 }
@@ -187,8 +195,10 @@ export default async (request, context) => {
                     if (data !== '[DONE]') {
                         try {
                             const parsed = JSON.parse(data);
+                            if (parsed.usage) usage = parsed.usage;
                             const content = parsed.choices?.[0]?.delta?.content;
                             if (content) {
+                                output += content;
                                 await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                             }
                         } catch (e) {}
@@ -200,6 +210,7 @@ export default async (request, context) => {
                 console.error('流处理错误:', error);
                 await writer.write(encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`));
             } finally {
+                await safeRecordUsage(quota.blobsAnalyticsAdd(getStore), { usage, messages, output });
                 await writer.close();
             }
         })();

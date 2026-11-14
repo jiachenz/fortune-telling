@@ -28,7 +28,9 @@ const state = {
     currentInterpretation: '',  // 当前解读内容
     followUpHistory: [],
     followUpCount: 0,
-    followUpBusy: false
+    followUpBusy: false,
+    historyId: null,            // 卦历条目 id（登录后自动保存）
+    historyTs: 0
 };
 
 let isMobileDevice = false;
@@ -131,6 +133,7 @@ let pngExportModule = null;
 let dailyTipsModule = null;
 let shareModule = null;
 let appStorage = null;
+let accountModule = null;
 
 // ========================================
 // DOM 元素
@@ -290,6 +293,30 @@ function initModules() {
     // 初始化分享模块
     shareModule = new ShareModule();
     shareModule.init();
+    window.shareModuleRef = shareModule;
+
+    accountModule = new AccountModule();
+    accountModule.init({
+        onOpenRecord: openHistoryRecord,
+        onChange: handleAccountChange
+    });
+}
+
+// 登录状态变化：按账号档位刷新追问上限
+function handleAccountChange(me) {
+    if (!me) return;
+    apiModule.quotaLimits = accountModule.limits();
+    if (state.currentPage === 'result' && elements.followupSection && !elements.followupSection.hidden && !state.followUpBusy) {
+        updateFollowUpLimit();
+    }
+}
+
+// 次数用完时给出下一步：匿名去登录，登录用户去兑换
+function quotaAction(tier) {
+    if (!accountModule || !accountModule.available) return null;
+    if (tier === 'anon') return { label: '登录，获取更多次数', onClick: () => accountModule.open() };
+    if (tier === 'user') return { label: '输入兑换码开通会员', onClick: () => accountModule.focusRedeem() };
+    return null;
 }
 
 // ========================================
@@ -383,6 +410,8 @@ function setupQuickCast() {
 }
 
 async function handleHexagramComplete(hexagramData) {
+    state.historyId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    state.historyTs = Date.now();
     showPage('result');
     setupReadingGuide();
     resetFollowUpState();
@@ -442,7 +471,7 @@ async function fetchAIInterpretation(hexagramData) {
         rendererModule.renderMarkdown(result.content);
         beginFollowUpSession(result.content);
     } else if (result.quotaExceeded) {
-        showLocalInterpretation(hexagramData, result.error);
+        showLocalInterpretation(hexagramData, result.error, result.tier);
     } else if (result.useLocal) {
         console.log('使用本地解读:', result.error);
         showLocalInterpretation(hexagramData);
@@ -481,11 +510,11 @@ async function fetchAIInterpretationStream(hexagramData) {
     // 如果流式失败，使用本地解读
     if (!result.success) {
         console.log('流式响应失败，使用本地解读');
-        showLocalInterpretation(hexagramData, result.quotaExceeded ? result.error : '');
+        showLocalInterpretation(hexagramData, result.quotaExceeded ? result.error : '', result.tier);
     }
 }
 
-function showLocalInterpretation(hexagramData, notice) {
+function showLocalInterpretation(hexagramData, notice, tier) {
     const interpretation = apiModule.generateLocalInterpretation(
         hexagramData,
         state.userQuestion,
@@ -495,8 +524,59 @@ function showLocalInterpretation(hexagramData, notice) {
     state.currentHexagramData = hexagramData;
     state.currentInterpretation = interpretation;
     rendererModule.renderMarkdown(interpretation);
-    if (notice) rendererModule.showNotice(notice);
+    if (notice) rendererModule.showNotice(notice, quotaAction(tier));
     beginFollowUpSession(interpretation);
+}
+
+function persistHistory() {
+    if (!accountModule || !state.historyId || !state.currentHexagramData) return;
+    const turns = state.followUpHistory.slice(2);
+    const followups = [];
+    for (let i = 0; i + 1 < turns.length; i += 2) {
+        followups.push({ q: turns[i].content, a: turns[i + 1].content });
+    }
+    accountModule.saveHistory({
+        id: state.historyId,
+        ts: state.historyTs,
+        question: state.userQuestion,
+        hexagramData: state.currentHexagramData,
+        interpretation: state.currentInterpretation,
+        followups
+    });
+}
+
+// 从卦历打开：还原卦盘、解读与追问，可在同一卦上继续追问
+function openHistoryRecord(item) {
+    const hexagramData = item && item.hexagramData;
+    if (!hexagramData) return;
+    state.userQuestion = item.question;
+    state.historyId = item.id;
+    state.historyTs = item.ts;
+    state.currentHexagramData = hexagramData;
+    state.currentInterpretation = item.interpretation || '';
+
+    showPage('result');
+    setupReadingGuide();
+    resetFollowUpState();
+    const dailyNumber = document.getElementById('daily-number');
+    if (dailyNumber) dailyNumber.hidden = true;
+
+    rendererModule.renderHexagramBoard(hexagramData);
+    rendererModule.renderUserQuestion(item.question);
+    rendererModule.renderMarkdown(state.currentInterpretation);
+    beginFollowUpSession(state.currentInterpretation, { persist: false });
+
+    (item.followups || []).forEach((f) => {
+        rendererModule.appendFollowUpUser(f.q);
+        rendererModule.initFollowUpStream();
+        rendererModule.renderFollowUpMarkdown(f.a);
+        state.followUpHistory.push({ role: 'user', content: f.q }, { role: 'assistant', content: f.a });
+    });
+    state.followUpCount = (item.followups || []).length;
+    updateFollowUpLimit();
+    renderShareCopies(hexagramData);
+    if (tocModule) tocModule.build();
+    window.scrollTo(0, 0);
 }
 
 function maxFollowUps() {
@@ -518,13 +598,14 @@ function resetFollowUpState() {
     if (elements.followupLimit) elements.followupLimit.textContent = '';
 }
 
-function beginFollowUpSession(interpretation) {
+function beginFollowUpSession(interpretation, options) {
     state.followUpHistory = [
         { role: 'user', content: state.userQuestion },
         { role: 'assistant', content: interpretation || '' }
     ];
     state.followUpCount = 0;
     state.followUpBusy = false;
+    if (!options || options.persist !== false) persistHistory();
     if (!elements.followupSection) return;
     elements.followupSection.hidden = false;
     elements.followupSection.classList.remove('is-busy', 'is-capped');
@@ -634,7 +715,11 @@ async function handleFollowUpSubmit(event) {
         if (quotaHit) {
             rendererModule.renderFollowUpMarkdown(`> ${quotaHit.error}`);
             if (elements.followupSection) elements.followupSection.classList.add('is-capped');
-            if (elements.followupLimit) elements.followupLimit.textContent = quotaHit.error;
+            if (elements.followupLimit) {
+                elements.followupLimit.textContent = quotaHit.error;
+                const action = quotaAction(quotaHit.tier);
+                if (action) elements.followupLimit.appendChild(RendererModule.actionButton(action));
+            }
             return;
         }
 
@@ -642,6 +727,7 @@ async function handleFollowUpSubmit(event) {
         state.followUpHistory.push({ role: 'assistant', content: content });
         state.followUpCount += 1;
         updateFollowUpLimit();
+        persistHistory();
     } finally {
         state.followUpBusy = false;
         if (elements.followupSection) elements.followupSection.classList.remove('is-busy');
@@ -1074,6 +1160,7 @@ async function init() {
     // 检查后端代理是否可用
     const proxyAvailable = await apiModule.checkProxyAvailable();
     console.log('后端代理状态:', proxyAvailable ? '可用' : '不可用');
+    await accountModule.refresh();
     
     // 如果后端代理可用，隐藏 API 配置相关提示
     if (proxyAvailable) {

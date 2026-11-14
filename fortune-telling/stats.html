@@ -116,6 +116,11 @@
                     <h3>近 30 日趋势</h3>
                     <canvas id="trend-chart"></canvas>
                 </div>
+                <div class="card">
+                    <h3>近 30 日成本与账号</h3>
+                    <p class="sub" id="cost-pricing"></p>
+                    <canvas id="cost-chart"></canvas>
+                </div>
                 <div class="grid-2">
                     <div class="card">
                         <h3>分享卡片类型</h3>
@@ -150,7 +155,16 @@
             return res.json();
         }
 
+        function fmtTokens(n) {
+            n = n || 0;
+            return n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n);
+        }
+
         function renderKpis(data) {
+            const acc = data.accounts || {};
+            const usage = data.usage || {};
+            const today = usage.today || {};
+            const total = usage.total || {};
             const items = [
                 ['今日求卦', data.divinations.today],
                 ['累计求卦', data.divinations.total],
@@ -161,7 +175,15 @@
                 ['转化率', data.kpis.conversionRateLabel],
                 ['K 因子', data.kpis.kFactorLabel],
                 ['今日解卦次数用完', ((data.quotaHits || {}).readingToday || 0) + ' 人'],
-                ['今日追问次数用完', ((data.quotaHits || {}).followupToday || 0) + ' 人']
+                ['今日追问次数用完', ((data.quotaHits || {}).followupToday || 0) + ' 人'],
+                ['今日新注册', (acc.signupToday || 0) + ' 人'],
+                ['累计注册', (acc.signupTotal || 0) + ' 人（邀请 ' + (acc.referralTotal || 0) + '）'],
+                ['今日兑换码使用', (acc.redeemToday || 0) + ' 次'],
+                ['今日 AI 调用', (today.calls || 0) + ' 次'],
+                ['今日 token（入 / 出）', fmtTokens(today.tokensIn) + ' / ' + fmtTokens(today.tokensOut)],
+                ['今日成本估算', '¥' + (today.costCny || 0).toFixed(2)],
+                ['累计成本估算', '¥' + (total.costCny || 0).toFixed(2)],
+                ['单次平均成本', today.calls ? '¥' + (today.costCny / today.calls).toFixed(3) : '—']
             ];
             document.getElementById('kpis').innerHTML = items.map(([label, value]) =>
                 `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`
@@ -184,6 +206,32 @@
                     ]
                 },
                 options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+            }));
+        }
+
+        function renderCost(data) {
+            const series = data.series || [];
+            const p = (data.usage && data.usage.pricing) || {};
+            document.getElementById('cost-pricing').textContent =
+                `按输入 $${p.inputPerM} / 输出 $${p.outputPerM}（每百万 token）、汇率 ${p.usdCny} 估算；上游未返回用量时按字数估算`;
+            charts.push(new Chart(document.getElementById('cost-chart'), {
+                data: {
+                    labels: series.map((s) => s.date.slice(5)),
+                    datasets: [
+                        { type: 'bar', label: '成本（¥）', data: series.map((s) => s.cost_cny || 0), backgroundColor: 'rgba(196,30,58,.35)', yAxisID: 'cost' },
+                        { type: 'line', label: 'AI 调用', data: series.map((s) => s.ai_calls || 0), borderColor: '#d4af37', tension: .3, yAxisID: 'count' },
+                        { type: 'line', label: '新注册', data: series.map((s) => s.signup || 0), borderColor: '#00a86b', tension: .3, yAxisID: 'count' },
+                        { type: 'line', label: '兑换', data: series.map((s) => s.redeem || 0), borderColor: '#8e44ad', borderDash: [6, 4], tension: .3, yAxisID: 'count' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: {
+                        cost: { position: 'left', beginAtZero: true, title: { display: true, text: '¥' } },
+                        count: { position: 'right', beginAtZero: true, ticks: { precision: 0 }, grid: { drawOnChartArea: false } }
+                    }
+                }
             }));
         }
 
@@ -219,6 +267,7 @@
             destroyCharts();
             renderKpis(data);
             renderTrend(data.series || []);
+            renderCost(data);
             renderPie('card-chart', 'card-empty', data.cards);
             renderPie('ref-chart', 'ref-empty', data.refs);
         }

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>管理后台 · 周易六爻</title>
+    <style>
+        :root {
+            --red: #c41e3a;
+            --gold: #d4af37;
+            --ink: #2c2c2c;
+            --muted: #777;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Noto Serif SC", "PingFang SC", serif;
+            background: linear-gradient(160deg, #fffef5 0%, #fbf3df 100%);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+        h1 { font-size: 28px; color: var(--red); letter-spacing: 4px; margin: 0 0 6px; }
+        h3 { margin: 0 0 16px; font-size: 16px; color: var(--red); }
+        .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+        .gate {
+            max-width: 420px;
+            margin: 80px auto;
+            background: #fff;
+            padding: 32px;
+            border-radius: 16px;
+            border: 1px solid rgba(212,175,55,.35);
+            text-align: center;
+        }
+        .gate h2 { color: var(--red); margin: 0 0 8px; }
+        .gate p { color: var(--muted); font-size: 14px; }
+        input, select, textarea {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 12px;
+            border: 2px solid rgba(196,30,58,.2);
+            border-radius: 8px;
+            background: #fff;
+            width: 100%;
+        }
+        textarea { min-height: 160px; font-family: ui-monospace, Consolas, monospace; }
+        button {
+            background: linear-gradient(135deg, var(--red), #8b1428);
+            color: #fffef5;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 24px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        button.ghost { background: transparent; color: var(--red); border: 1px solid var(--red); }
+        button:disabled { opacity: .5; cursor: default; }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(212,175,55,.3);
+            margin-bottom: 20px;
+        }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+        label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+        .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .msg { font-size: 13px; margin: 10px 0 0; min-height: 18px; }
+        .msg.err { color: var(--red); }
+        .msg.ok { color: #00a86b; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(212,175,55,.25); }
+        th { color: var(--muted); font-weight: normal; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
+        .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+        .table-wrap { overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div id="gate" class="gate">
+            <h2>管理后台</h2>
+            <p>输入 ADMIN_TOKEN（未设置时用 STATS_TOKEN）。本地未配置时可直接进入。</p>
+            <input id="token-input" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" style="margin:12px 0 16px;">
+            <button id="unlock-btn" type="button">进入</button>
+            <p id="gate-error" class="msg err"></p>
+        </div>
+
+        <div id="dash" hidden>
+            <div class="toolbar">
+                <div>
+                    <h1>管理后台</h1>
+                    <p class="sub">兑换码 · 手动开通 · 用户查询</p>
+                </div>
+                <button type="button" class="ghost" id="logout-btn">退出</button>
+            </div>
+
+            <div class="card">
+                <h3>生成兑换码</h3>
+                <div class="grid">
+                    <div>
+                        <label for="g-type">类型</label>
+                        <select id="g-type">
+                            <option value="days">会员天数</option>
+                            <option value="credits">AI 解卦次数</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="g-amount">天数 / 次数</label>
+                        <input id="g-amount" type="number" min="1" value="30">
+                    </div>
+                    <div>
+                        <label for="g-batch">批次名称</label>
+                        <input id="g-batch" placeholder="例如：月卡 · 11 月">
+                    </div>
+                    <div>
+                        <label for="g-deadline">兑换截止日（可选）</label>
+                        <input id="g-deadline" type="date">
+                    </div>
+                </div>
+                <div class="grid">
+                    <div>
+                        <label for="g-count">单次码数量（每个码只能用一次）</label>
+                        <input id="g-count" type="number" min="1" max="500" value="10">
+                    </div>
+                    <div>
+                        <label for="g-campaign">或：活动码（多人共用，每人一次）</label>
+                        <input id="g-campaign" placeholder="例如：XINCHUN2027">
+                    </div>
+                    <div>
+                        <label for="g-max">活动码可用人数</label>
+                        <input id="g-max" type="number" min="1" value="100">
+                    </div>
+                </div>
+                <p class="hint">填了活动码就生成活动码，否则按数量生成单次码。单次码只在这里显示一次，请及时复制或下载。</p>
+                <div class="row" style="margin-top:12px;">
+                    <button id="g-btn" type="button">生成</button>
+                    <button id="g-download" type="button" class="ghost" hidden>下载 CSV</button>
+                </div>
+                <p id="g-msg" class="msg"></p>
+                <textarea id="g-output" readonly hidden></textarea>
+            </div>
+
+            <div class="card">
+                <div class="toolbar" style="margin-bottom:8px;">
+                    <h3 style="margin:0;">兑换码批次</h3>
+                    <button id="list-btn" type="button" class="ghost">刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>批次</th><th>类型</th><th>码</th><th>已用 / 容量</th><th>截止</th><th>创建</th><th></th></tr>
+                        </thead>
+                        <tbody id="batch-body"></tbody>
+                    </table>
+                </div>
+                <div class="row" style="margin-top:16px;">
+                    <input id="disable-code" placeholder="作废单个兑换码：GUA-XXXX-XXXX" style="flex:1;min-width:200px;">
+                    <button id="disable-code-btn" type="button" class="ghost">作废</button>
+                </div>
+                <p id="list-msg" class="msg"></p>
+            </div>
+
+            <div class="card">
+                <h3>手动开通 / 查询用户</h3>
+                <div class="grid">
+                    <div>
+                        <label for="u-email">用户邮箱</label>
+                        <input id="u-email" type="email" placeholder="user@example.com">
+                    </div>
+                    <div>
+                        <label for="u-days">增加会员天数</label>
+                        <input id="u-days" type="number" min="0" value="0">
+                    </div>
+                    <div>
+                        <label for="u-credits">增加解卦次数</label>
+                        <input id="u-credits" type="number" min="0" value="0">
+                    </div>
+                </div>
+                <div class="row">
+                    <button id="u-grant" type="button">开通</button>
+                    <button id="u-lookup" type="button" class="ghost">只查询</button>
+                </div>
+                <p id="u-msg" class="msg"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOKEN_KEY = 'fortune_admin_token';
+        let token = sessionStorage.getItem(TOKEN_KEY) || '';
+        let lastCodes = [];
+        const $ = (id) => document.getElementById(id);
+
+        async function api(action, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = 'Bearer ' + token;
+            const res = await fetch('/api/admin', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(Object.assign({ action }, body || {}))
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 401) throw Object.assign(new Error('token 不正确'), { unauthorized: true });
+            if (!res.ok) throw new Error(data.error || '请求失败：' + res.status);
+            return data;
+        }
+
+        function msg(id, text, ok) {
+            const el = $(id);
+            el.textContent = text || '';
+            el.className = 'msg ' + (ok ? 'ok' : 'err');
+        }
+
+        function fmtDate(ts) {
+            return ts ? new Date(ts).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '—';
+        }
+
+        function typeLabel(b) {
+            return b.type === 'days' ? `会员 ${b.amount} 天` : `解卦 ${b.amount} 次`;
+        }
+
+        async function loadBatches() {
+            const body = $('batch-body');
+            try {
+                const { batches } = await api('list');
+                body.innerHTML = '';
+                if (!batches.length) {
+                    body.innerHTML = '<tr><td colspan="7" style="color:#777;">还没有兑换码</td></tr>';
+                    return;
+                }
+                batches.forEach((b) => {
+                    const tr = document.createElement('tr');
+                    const cells = [
+                        b.batch,
+                        typeLabel(b),
+                        b.campaign ? `活动码 ${b.display}` : `单次码 × ${b.codes}`,
+                        `${b.used} / ${b.capacity}` + (b.disabled ? `（已作废 ${b.disabled}）` : ''),
+                        fmtDate(b.expiresAt),
+                        fmtDate(b.createdAt)
+                    ];
+                    cells.forEach((text) => {
+                        const td = document.createElement('td');
+                        td.textContent = text;
+                        tr.appendChild(td);
+                    });
+                    const td = document.createElement('td');
+                    if (b.disabled < b.codes) {
+                        const btn = document.createElement('button');
+                        btn.className = 'ghost';
+                        btn.textContent = '作废整批';
+                        btn.addEventListener('click', async () => {
+                            if (!confirm(`作废「${b.batch}」里所有未作废的码？已兑换的权益不受影响。`)) return;
+                            try {
+                                const r = await api('disable', { batchId: b.batchId });
+                                msg('list-msg', `已作废 ${r.changed} 个`, true);
+                                loadBatches();
+                            } catch (e) { msg('list-msg', e.message); }
+                        });
+                        td.appendChild(btn);
+                    }
+                    tr.appendChild(td);
+                    body.appendChild(tr);
+                });
+            } catch (e) {
+                msg('list-msg', e.message);
+            }
+        }
+
+        function userText(u) {
+            const tier = { member: '会员', user: '免费用户' }[u.tier] || u.tier;
+            return `${u.email} · ${tier}` +
+                (u.memberUntil ? ` · 会员至 ${fmtDate(u.memberUntil)}` : '') +
+                ` · 次数余额 ${u.credits} · 邀请 ${u.referralCount} 人 · 注册于 ${fmtDate(u.createdAt)}`;
+        }
+
+        async function unlock(silent) {
+            try {
+                await api('list');
+                if (token) sessionStorage.setItem(TOKEN_KEY, token);
+                $('gate').hidden = true;
+                $('dash').hidden = false;
+                loadBatches();
+            } catch (e) {
+                if (e.unauthorized) sessionStorage.removeItem(TOKEN_KEY);
+                if (!silent) msg('gate-error', e.message);
+            }
+        }
+
+        $('unlock-btn').addEventListener('click', () => {
+            token = $('token-input').value.trim();
+            unlock(false);
+        });
+        $('token-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('unlock-btn').click(); });
+        $('logout-btn').addEventListener('click', () => {
+            sessionStorage.removeItem(TOKEN_KEY);
+            location.reload();
+        });
+
+        $('g-type').addEventListener('change', () => {
+            $('g-amount').value = $('g-type').value === 'days' ? 30 : 20;
+        });
+
+        $('g-btn').addEventListener('click', async () => {
+            const btn = $('g-btn');
+            btn.disabled = true;
+            const campaignCode = $('g-campaign').value.trim();
+            try {
+                const r = await api('generate', {
+                    type: $('g-type').value,
+                    amount: $('g-amount').value,
+                    batch: $('g-batch').value.trim(),
+                    expiresAt: $('g-deadline').value,
+                    count: $('g-count').value,
+                    campaignCode,
+                    maxUses: $('g-max').value
+                });
+                lastCodes = r.codes;
+                $('g-output').hidden = false;
+                $('g-output').value = r.codes.join('\n');
+                $('g-download').hidden = false;
+                msg('g-msg', campaignCode ? '活动码已创建' : `已生成 ${r.codes.length} 个单次码，请立即复制或下载`, true);
+                $('g-campaign').value = '';
+                loadBatches();
+            } catch (e) {
+                msg('g-msg', e.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        $('g-download').addEventListener('click', () => {
+            const batch = $('g-batch').value.trim() || 'codes';
+            const csv = '\ufeffcode\n' + lastCodes.join('\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            a.download = `兑换码-${batch}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        $('list-btn').addEventListener('click', loadBatches);
+
+        $('disable-code-btn').addEventListener('click', async () => {
+            const code = $('disable-code').value.trim();
+            if (!code) return;
+            try {
+                await api('disable', { code });
+                $('disable-code').value = '';
+                msg('list-msg', '已作废', true);
+                loadBatches();
+            } catch (e) { msg('list-msg', e.message); }
+        });
+
+        $('u-grant').addEventListener('click', async () => {
+            try {
+                const r = await api('grant', {
+                    email: $('u-email').value.trim(),
+                    days: $('u-days').value,
+                    credits: $('u-credits').value
+                });
+                msg('u-msg', '已开通：' + userText(r.user), true);
+            } catch (e) { msg('u-msg', e.message); }
+        });
+
+        $('u-lookup').addEventListener('click', async () => {
+            try {
+                const r = await api('user', { email: $('u-email').value.trim() });
+                msg('u-msg', userText(r.user), true);
+            } catch (e) { msg('u-msg', e.message); }
+        });
+
+        unlock(true);
+    </script>
+</body>
+</html>
