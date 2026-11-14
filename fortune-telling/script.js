@@ -45,11 +45,11 @@ function setShakeGuide(mode) {
     guide.classList.toggle('is-denied', mode === 'denied');
     if (mode === 'denied') {
         if (title) title.textContent = '未能开启摇一摇';
-        if (sub) sub.textContent = '请点下方按钮掷铜钱。若在微信里，可点右上角用浏览器打开后再试。';
+        if (sub) sub.textContent = '请点铜钱或下方按钮掷出。若在微信里，可点右上角用浏览器打开后再试。';
         return;
     }
     if (title) title.textContent = '摇晃手机，掷出这一爻';
-    if (sub) sub.textContent = '感应到晃动就会抛出三枚铜钱。点下方按钮也可以。';
+    if (sub) sub.textContent = '感应到晃动就会抛出三枚铜钱。点铜钱或下方按钮也可以。';
 }
 
 function handleDeviceMotion(event) {
@@ -222,7 +222,7 @@ function initElements() {
 // ========================================
 
 function initModules() {
-    const defaultHint = isMobileDevice ? '摇晃手机或点击下方按钮掷出铜钱' : '点击上方硬币区域掷出铜钱';
+    const defaultHint = isMobileDevice ? '摇晃手机，或点铜钱、点下方按钮掷出' : '点击上方硬币区域掷出铜钱';
     
     // 初始化铜钱模块
     coinModule = new CoinModule();
@@ -281,6 +281,9 @@ function showPage(pageName) {
         page.classList.remove('active');
     });
     
+    // 各页面绝对定位叠放，文档滚动位置不会随切页重置
+    window.scrollTo(0, 0);
+
     const targetPage = document.getElementById(`${pageName}-page`);
     if (targetPage) {
         setTimeout(() => {
@@ -913,16 +916,12 @@ function bindEvents() {
         });
     }
     
-    // PC/Mobile 差异化绑定
+    // 硬币区域两端都可点击；PC 端隐藏按钮
+    const coinsContainer = document.querySelector('.coins-container');
+    if (coinsContainer) coinsContainer.addEventListener('click', handleThrowClick);
     if (!isMobileDevice) {
-        // PC 端隐藏按钮，将事件绑定到硬币容器
         elements.throwBtn.style.display = 'none';
-        
-        const coinsContainer = document.querySelector('.coins-container');
-        if (coinsContainer) {
-            coinsContainer.addEventListener('click', handleThrowClick);
-            coinsContainer.classList.add('pc-interactive');
-        }
+        if (coinsContainer) coinsContainer.classList.add('pc-interactive');
     }
 }
 
@@ -974,7 +973,7 @@ async function init() {
     if (elements.throwResult) {
         const resultSpan = elements.throwResult.querySelector('.result-text');
         if (resultSpan) {
-            resultSpan.textContent = isMobileDevice ? '摇晃手机或点击下方按钮掷出铜钱' : '点击上方硬币区域掷出铜钱';
+            resultSpan.textContent = isMobileDevice ? '摇晃手机，或点铜钱、点下方按钮掷出' : '点击上方硬币区域掷出铜钱';
         }
     }
     

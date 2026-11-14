@@ -1553,8 +1553,28 @@ body {
         margin-top: 10px;
     }
     
+    #coin-page {
+        align-items: flex-start;
+    }
+
+    #coin-page .content-wrapper {
+        gap: 18px;
+    }
+
+    /* 与铜钱下方的 throw-hint 内容重复，小屏省掉 */
+    #coin-page .page-guide {
+        display: none;
+    }
+
+    #coin-page .page-title {
+        font-size: 34px;
+        margin-bottom: 4px;
+    }
+
     .coins-container {
         gap: 16px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
     }
     
     .coin {

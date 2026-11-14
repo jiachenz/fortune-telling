@@ -85,9 +85,12 @@ class PngExportModule {
     }
 
     parseMarkdown(text) {
-        const html = typeof marked !== 'undefined'
-            ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(text || ''))
-            : this.escapeHtml(text).replace(/\n/g, '<br>');
+        const R = window.RendererModule;
+        const source = R ? R.normalizeMarkdown(text) : (text || '');
+        let html = typeof marked !== 'undefined'
+            ? (marked.setOptions({ breaks: true, gfm: true }), marked.parse(source))
+            : this.escapeHtml(source).replace(/\n/g, '<br>');
+        if (R) html = R.boldLeftoverStars(html);
         return this.emphasizeGanzhiLabel(html);
     }
 
