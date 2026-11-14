@@ -8,7 +8,7 @@
 // 应用状态
 // ========================================
 
-const MAX_FOLLOWUPS = 5;
+const DEFAULT_MAX_FOLLOWUPS = 5;
 const READING_GUIDE_KEY = 'fortune_reading_guide_dismissed';
 
 const state = {
@@ -382,6 +382,8 @@ async function fetchAIInterpretation(hexagramData) {
         state.currentInterpretation = result.content;
         rendererModule.renderMarkdown(result.content);
         beginFollowUpSession(result.content);
+    } else if (result.quotaExceeded) {
+        showLocalInterpretation(hexagramData, result.error);
     } else if (result.useLocal) {
         console.log('使用本地解读:', result.error);
         showLocalInterpretation(hexagramData);
@@ -420,11 +422,11 @@ async function fetchAIInterpretationStream(hexagramData) {
     // 如果流式失败，使用本地解读
     if (!result.success) {
         console.log('流式响应失败，使用本地解读');
-        showLocalInterpretation(hexagramData);
+        showLocalInterpretation(hexagramData, result.quotaExceeded ? result.error : '');
     }
 }
 
-function showLocalInterpretation(hexagramData) {
+function showLocalInterpretation(hexagramData, notice) {
     const interpretation = apiModule.generateLocalInterpretation(
         hexagramData,
         state.userQuestion,
@@ -434,7 +436,13 @@ function showLocalInterpretation(hexagramData) {
     state.currentHexagramData = hexagramData;
     state.currentInterpretation = interpretation;
     rendererModule.renderMarkdown(interpretation);
+    if (notice) rendererModule.showNotice(notice);
     beginFollowUpSession(interpretation);
+}
+
+function maxFollowUps() {
+    const limits = apiModule && apiModule.quotaLimits;
+    return limits ? limits.followupsPerCast : DEFAULT_MAX_FOLLOWUPS;
 }
 
 function resetFollowUpState() {
@@ -465,7 +473,7 @@ function beginFollowUpSession(interpretation) {
 
 function updateFollowUpLimit() {
     if (!elements.followupLimit || !elements.followupSection) return;
-    const remain = MAX_FOLLOWUPS - state.followUpCount;
+    const remain = maxFollowUps() - state.followUpCount;
     if (remain <= 0) {
         elements.followupSection.classList.add('is-capped');
         elements.followupLimit.textContent = '本卦追问已满，可再占一卦';
@@ -495,7 +503,7 @@ function setupReadingGuide() {
 
 async function handleFollowUpSubmit(event) {
     if (event) event.preventDefault();
-    if (state.followUpBusy || state.followUpCount >= MAX_FOLLOWUPS) return;
+    if (state.followUpBusy || state.followUpCount >= maxFollowUps()) return;
     if (!state.currentHexagramData) return;
 
     const text = (elements.followupInput && elements.followupInput.value.trim()) || '';
@@ -519,6 +527,7 @@ async function handleFollowUpSubmit(event) {
     const config = apiModule.getConfig();
     let content = '';
     let ok = false;
+    let quotaHit = null;
 
     try {
         if (config.useProxy && config.useStream) {
@@ -537,9 +546,10 @@ async function handleFollowUpSubmit(event) {
             );
             ok = !!(result && result.success);
             if (ok && !content) content = result.content || rendererModule.getStreamContent();
+            if (result && result.quotaExceeded) quotaHit = result;
         }
 
-        if (!ok) {
+        if (!ok && !quotaHit) {
             const result = await apiModule.getInterpretation(
                 state.currentHexagramData,
                 state.userQuestion,
@@ -548,6 +558,8 @@ async function handleFollowUpSubmit(event) {
             );
             if (result.success) {
                 content = result.content;
+            } else if (result.quotaExceeded) {
+                quotaHit = result;
             } else {
                 content = apiModule.generateLocalFollowUp(
                     state.currentHexagramData,
@@ -555,7 +567,14 @@ async function handleFollowUpSubmit(event) {
                     text
                 );
             }
-            rendererModule.renderFollowUpMarkdown(content);
+            if (!quotaHit) rendererModule.renderFollowUpMarkdown(content);
+        }
+
+        if (quotaHit) {
+            rendererModule.renderFollowUpMarkdown(`> ${quotaHit.error}`);
+            if (elements.followupSection) elements.followupSection.classList.add('is-capped');
+            if (elements.followupLimit) elements.followupLimit.textContent = quotaHit.error;
+            return;
         }
 
         state.followUpHistory.push({ role: 'user', content: text });

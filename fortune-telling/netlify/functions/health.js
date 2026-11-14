@@ -21,7 +21,8 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
             status: 'ok',
             message: '周易六爻占卜服务运行中',
-            hasApiKey: !!process.env.API_KEY
+            hasApiKey: !!process.env.API_KEY,
+            quota: require('../lib/quota.js').getLimits()
         })
     };
 };

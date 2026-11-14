@@ -14,6 +14,8 @@ const {
     normalizeHistory,
     normalizeFollowUp
 } = require('../lib/prompt.js');
+const quota = require('../lib/quota.js');
+const { getStore } = require('@netlify/blobs');
 
 export default async (request, context) => {
     // 只允许 POST 请求
@@ -45,7 +47,7 @@ export default async (request, context) => {
         });
     }
 
-    const { hexagramData, userQuestion, yaoResults, history, followUp } = body;
+    const { hexagramData, userQuestion, yaoResults, history, followUp, deviceId } = body;
 
     if (!hexagramData || !userQuestion || !yaoResults) {
         return new Response(JSON.stringify({ error: '缺少必要参数' }), {
@@ -68,6 +70,28 @@ export default async (request, context) => {
 
     const followUpText = normalizeFollowUp(followUp);
     const historyNorm = normalizeHistory(history);
+
+    const quotaStore = quota.blobsStore(getStore);
+    const ident = quota.buildIdentity({
+        deviceId,
+        ip: context && context.ip,
+        castAt: hexagramData.castAt,
+        followUp: followUpText
+    });
+    const verdict = await quota.safeCheck(quotaStore, ident);
+    if (!verdict.allowed) {
+        return new Response(JSON.stringify({
+            error: verdict.message,
+            quotaExceeded: true,
+            kind: verdict.kind
+        }), {
+            status: 429,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            }
+        });
+    }
 
     try {
         // 调用 AI API（流式）
@@ -106,6 +130,8 @@ export default async (request, context) => {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        await quota.safeConsume(quotaStore, ident);
 
         // 创建 TransformStream 来处理流式数据
         const { readable, writable } = new TransformStream();

@@ -214,6 +214,14 @@ class RendererModule {
         `;
     }
 
+    showNotice(message) {
+        if (!this.aiResponseElement || !message) return;
+        const el = document.createElement('div');
+        el.className = 'quota-notice';
+        el.textContent = message;
+        this.aiResponseElement.prepend(el);
+    }
+
     renderMarkdown(text) {
         if (!this.aiResponseElement) return;
         this.aiResponseElement.innerHTML = `<div class="markdown-content">${this.parseMarkdown(text, true)}</div>`;

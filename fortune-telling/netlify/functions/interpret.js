@@ -33,7 +33,7 @@ exports.handler = async (event, context) => {
         };
     }
 
-    const { hexagramData, userQuestion, yaoResults, history, followUp } = body;
+    const { hexagramData, userQuestion, yaoResults, history, followUp, deviceId } = body;
 
     if (!hexagramData || !userQuestion || !yaoResults) {
         return {
@@ -64,6 +64,39 @@ exports.handler = async (event, context) => {
 
     const followUpText = normalizeFollowUp(followUp);
     const historyNorm = normalizeHistory(history);
+
+    const quota = require('../lib/quota.js');
+    const { getStore, connectLambda } = require('@netlify/blobs');
+    let quotaStore = null;
+    let ident = null;
+    try {
+        connectLambda(event);
+        quotaStore = quota.blobsStore(getStore);
+        const hdrs = event.headers || {};
+        ident = quota.buildIdentity({
+            deviceId,
+            ip: hdrs['x-nf-client-connection-ip'] || (hdrs['x-forwarded-for'] || '').split(',')[0].trim(),
+            castAt: hexagramData.castAt,
+            followUp: followUpText
+        });
+    } catch (e) {
+        console.error('限额初始化失败，放行:', e.message);
+    }
+    if (quotaStore && ident) {
+        const verdict = await quota.safeCheck(quotaStore, ident);
+        if (!verdict.allowed) {
+            return {
+                statusCode: 429,
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: verdict.message,
+                    quotaExceeded: true,
+                    kind: verdict.kind
+                })
+            };
+        }
+    }
 
     try {
         const controller = new AbortController();
@@ -105,6 +138,8 @@ exports.handler = async (event, context) => {
         if (!content) {
             throw new Error('AI 返回内容为空');
         }
+
+        if (quotaStore && ident) await quota.safeConsume(quotaStore, ident);
 
         return {
             statusCode: 200,

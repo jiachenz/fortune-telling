@@ -1265,6 +1265,17 @@ body {
     margin-bottom: 16px;
 }
 
+.quota-notice {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #8a5a00;
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 8px;
+}
+
 .followup-thread {
     display: flex;
     flex-direction: column;
