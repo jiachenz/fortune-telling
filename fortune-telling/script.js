@@ -8,8 +8,18 @@
 // 应用状态
 // ========================================
 
-const MAX_FOLLOWUPS = 5;
+const DEFAULT_MAX_FOLLOWUPS = 5;
 const READING_GUIDE_KEY = 'fortune_reading_guide_dismissed';
+const COIN_COACH_KEY = 'fortune_coin_coach_seen';
+const QUICK_CAST_KEY = 'fortune_quick_cast';
+
+function readFlag(key) {
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+}
+
+function writeFlag(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
 
 const state = {
     currentPage: 'welcome',
@@ -116,6 +126,7 @@ function setupShakeEvent() {
 let coinModule = null;
 let apiModule = null;
 let rendererModule = null;
+let tocModule = null;
 let pngExportModule = null;
 let dailyTipsModule = null;
 let shareModule = null;
@@ -233,7 +244,8 @@ function initModules() {
         throwBtn: elements.throwBtn,
         currentThrow: elements.currentThrow,
         defaultHintText: defaultHint,
-        onComplete: handleHexagramComplete
+        onComplete: handleHexagramComplete,
+        onThrowStart: hideCoinCoach
     });
     
     // 初始化 API 模块
@@ -251,6 +263,14 @@ function initModules() {
         followupThread: elements.followupThread
     });
     
+    tocModule = new ReadingTocModule();
+    tocModule.init({
+        nav: document.getElementById('reading-toc'),
+        list: document.getElementById('reading-toc-list'),
+        source: elements.aiResponse,
+        followupSection: elements.followupSection
+    });
+
     // 初始化截图导出模块
     pngExportModule = new PngExportModule();
 
@@ -294,6 +314,7 @@ function showPage(pageName) {
     // 贴底浮动分享条只在结果页出现
     const stickyBar = document.getElementById('share-sticky-bar');
     if (stickyBar) stickyBar.hidden = (pageName !== 'result');
+    if (tocModule && pageName !== 'result') tocModule.reset();
 
     state.currentPage = pageName;
 }
@@ -317,10 +338,48 @@ function handleStartClick() {
     }
     
     showPage('coin');
+    setupCoinCoach();
+}
+
+// 首次使用显示「点铜钱」提示；每卦第一掷之前铜钱都会轻微呼吸提示可点
+function setupCoinCoach() {
+    const container = document.querySelector('.coins-container');
+    if (container) container.classList.add('is-awaiting');
+    const coach = document.getElementById('coin-coach');
+    if (!coach) return;
+    const text = document.getElementById('coin-coach-text');
+    if (text) text.textContent = isMobileDevice ? '点一下铜钱，或摇一摇手机，掷出第一爻' : '点一下铜钱，掷出第一爻';
+    coach.hidden = readFlag(COIN_COACH_KEY);
+}
+
+function hideCoinCoach() {
+    const container = document.querySelector('.coins-container');
+    if (container) container.classList.remove('is-awaiting');
+    const coach = document.getElementById('coin-coach');
+    if (coach && !coach.hidden) {
+        coach.hidden = true;
+        writeFlag(COIN_COACH_KEY, true);
+    }
 }
 
 function handleThrowClick() {
-    coinModule.throwCoins();
+    if (coinModule.autoThrowing) return;
+    if (coinModule.fast) {
+        coinModule.throwAll();
+    } else {
+        coinModule.throwCoins();
+    }
+}
+
+function setupQuickCast() {
+    const input = document.getElementById('quick-cast-input');
+    if (!input) return;
+    input.checked = readFlag(QUICK_CAST_KEY);
+    coinModule.setFast(input.checked);
+    input.addEventListener('change', () => {
+        writeFlag(QUICK_CAST_KEY, input.checked);
+        coinModule.setFast(input.checked);
+    });
 }
 
 async function handleHexagramComplete(hexagramData) {
@@ -382,6 +441,8 @@ async function fetchAIInterpretation(hexagramData) {
         state.currentInterpretation = result.content;
         rendererModule.renderMarkdown(result.content);
         beginFollowUpSession(result.content);
+    } else if (result.quotaExceeded) {
+        showLocalInterpretation(hexagramData, result.error);
     } else if (result.useLocal) {
         console.log('使用本地解读:', result.error);
         showLocalInterpretation(hexagramData);
@@ -420,11 +481,11 @@ async function fetchAIInterpretationStream(hexagramData) {
     // 如果流式失败，使用本地解读
     if (!result.success) {
         console.log('流式响应失败，使用本地解读');
-        showLocalInterpretation(hexagramData);
+        showLocalInterpretation(hexagramData, result.quotaExceeded ? result.error : '');
     }
 }
 
-function showLocalInterpretation(hexagramData) {
+function showLocalInterpretation(hexagramData, notice) {
     const interpretation = apiModule.generateLocalInterpretation(
         hexagramData,
         state.userQuestion,
@@ -434,7 +495,13 @@ function showLocalInterpretation(hexagramData) {
     state.currentHexagramData = hexagramData;
     state.currentInterpretation = interpretation;
     rendererModule.renderMarkdown(interpretation);
+    if (notice) rendererModule.showNotice(notice);
     beginFollowUpSession(interpretation);
+}
+
+function maxFollowUps() {
+    const limits = apiModule && apiModule.quotaLimits;
+    return limits ? limits.followupsPerCast : DEFAULT_MAX_FOLLOWUPS;
 }
 
 function resetFollowUpState() {
@@ -442,6 +509,7 @@ function resetFollowUpState() {
     state.followUpCount = 0;
     state.followUpBusy = false;
     if (rendererModule) rendererModule.resetFollowUpThread();
+    if (tocModule) tocModule.reset();
     if (elements.followupSection) {
         elements.followupSection.hidden = true;
         elements.followupSection.classList.remove('is-busy', 'is-capped');
@@ -461,11 +529,12 @@ function beginFollowUpSession(interpretation) {
     elements.followupSection.hidden = false;
     elements.followupSection.classList.remove('is-busy', 'is-capped');
     updateFollowUpLimit();
+    if (tocModule) tocModule.build();
 }
 
 function updateFollowUpLimit() {
     if (!elements.followupLimit || !elements.followupSection) return;
-    const remain = MAX_FOLLOWUPS - state.followUpCount;
+    const remain = maxFollowUps() - state.followUpCount;
     if (remain <= 0) {
         elements.followupSection.classList.add('is-capped');
         elements.followupLimit.textContent = '本卦追问已满，可再占一卦';
@@ -495,7 +564,7 @@ function setupReadingGuide() {
 
 async function handleFollowUpSubmit(event) {
     if (event) event.preventDefault();
-    if (state.followUpBusy || state.followUpCount >= MAX_FOLLOWUPS) return;
+    if (state.followUpBusy || state.followUpCount >= maxFollowUps()) return;
     if (!state.currentHexagramData) return;
 
     const text = (elements.followupInput && elements.followupInput.value.trim()) || '';
@@ -519,6 +588,7 @@ async function handleFollowUpSubmit(event) {
     const config = apiModule.getConfig();
     let content = '';
     let ok = false;
+    let quotaHit = null;
 
     try {
         if (config.useProxy && config.useStream) {
@@ -537,9 +607,10 @@ async function handleFollowUpSubmit(event) {
             );
             ok = !!(result && result.success);
             if (ok && !content) content = result.content || rendererModule.getStreamContent();
+            if (result && result.quotaExceeded) quotaHit = result;
         }
 
-        if (!ok) {
+        if (!ok && !quotaHit) {
             const result = await apiModule.getInterpretation(
                 state.currentHexagramData,
                 state.userQuestion,
@@ -548,6 +619,8 @@ async function handleFollowUpSubmit(event) {
             );
             if (result.success) {
                 content = result.content;
+            } else if (result.quotaExceeded) {
+                quotaHit = result;
             } else {
                 content = apiModule.generateLocalFollowUp(
                     state.currentHexagramData,
@@ -555,7 +628,14 @@ async function handleFollowUpSubmit(event) {
                     text
                 );
             }
-            rendererModule.renderFollowUpMarkdown(content);
+            if (!quotaHit) rendererModule.renderFollowUpMarkdown(content);
+        }
+
+        if (quotaHit) {
+            rendererModule.renderFollowUpMarkdown(`> ${quotaHit.error}`);
+            if (elements.followupSection) elements.followupSection.classList.add('is-capped');
+            if (elements.followupLimit) elements.followupLimit.textContent = quotaHit.error;
+            return;
         }
 
         state.followUpHistory.push({ role: 'user', content: text });
@@ -979,6 +1059,7 @@ async function init() {
     
     initModules();
     bindEvents();
+    setupQuickCast();
     addShakeStyle();
 
     // 裂变 & 留存初始化：访问计数、来源落地、邀请落地、打卡 chip

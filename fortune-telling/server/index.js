@@ -149,6 +149,49 @@ const {
     normalizeFollowUp
 } = require('../netlify/lib/prompt.js');
 
+const quota = require('../netlify/lib/quota.js');
+
+const localQuotaStore = {
+    get: async (key) => {
+        const data = readLocalData();
+        return (data.quota && data.quota[key]) || null;
+    },
+    set: async (key, value) => {
+        const data = readLocalData();
+        data.quota = data.quota || {};
+        data.quota[key] = value;
+        writeLocalData(data);
+    }
+};
+
+// 通过则返回 ident（成功后用于记账）；超额时直接响应 429 并返回 null
+async function guardQuota(req, res) {
+    const body = req.body || {};
+    const ident = quota.buildIdentity({
+        deviceId: body.deviceId,
+        ip: req.ip,
+        castAt: body.hexagramData && body.hexagramData.castAt,
+        followUp: normalizeFollowUp(body.followUp)
+    });
+    const verdict = await quota.safeCheck(localQuotaStore, ident);
+    if (!verdict.allowed) {
+        await quota.safeRecordDenied(localQuotaStore, ident, verdict.kind, async (keys) => {
+            const data = readLocalData();
+            data.analytics = data.analytics || {};
+            keys.forEach((k) => { data.analytics[k] = (data.analytics[k] || 0) + 1; });
+            writeLocalData(data);
+        });
+        res.status(429).json({
+            success: false,
+            error: verdict.message,
+            quotaExceeded: true,
+            kind: verdict.kind
+        });
+        return null;
+    }
+    return ident;
+}
+
 function interpretMessages(body) {
     const followUp = normalizeFollowUp(body && body.followUp);
     const history = normalizeHistory(body && body.history);
@@ -169,7 +212,8 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         message: '周易六爻占卜服务运行中',
-        hasApiKey: !!API_CONFIG.apiKey
+        hasApiKey: !!API_CONFIG.apiKey,
+        quota: quota.getLimits()
     });
 });
 
@@ -207,6 +251,9 @@ app.post('/api/interpret', async (req, res) => {
         });
     }
 
+    const ident = await guardQuota(req, res);
+    if (!ident) return;
+
     try {
         // 调用 AI API
         const response = await fetch(`${API_CONFIG.apiBase}/chat/completions`, {
@@ -219,7 +266,7 @@ app.post('/api/interpret', async (req, res) => {
                 model: API_CONFIG.model,
                 messages: interpretMessages(req.body),
                 temperature: 0.7,
-                max_tokens: 8000
+                max_tokens: 16000
             })
         });
 
@@ -231,6 +278,7 @@ app.post('/api/interpret', async (req, res) => {
 
         const data = await response.json();
         const interpretation = data.choices[0].message.content;
+        await quota.safeConsume(localQuotaStore, ident);
 
         res.json({
             success: true,
@@ -258,6 +306,9 @@ app.post('/api/interpret-stream', async (req, res) => {
         return res.status(500).json({ error: 'API Key 未配置' });
     }
 
+    const ident = await guardQuota(req, res);
+    if (!ident) return;
+
     try {
         const response = await fetch(`${API_CONFIG.apiBase}/chat/completions`, {
             method: 'POST',
@@ -269,7 +320,7 @@ app.post('/api/interpret-stream', async (req, res) => {
                 model: API_CONFIG.model,
                 messages: interpretMessages(req.body),
                 temperature: 0.7,
-                max_tokens: 8000,
+                max_tokens: 16000,
                 stream: true
             })
         });
@@ -279,6 +330,8 @@ app.post('/api/interpret-stream', async (req, res) => {
             console.error('流式 API 请求失败:', response.status, errorText);
             return res.status(500).json({ error: `API 请求失败: ${response.status}` });
         }
+
+        await quota.safeConsume(localQuotaStore, ident);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');

@@ -1017,13 +1017,154 @@ body {
     50% { filter: brightness(1.3); }
 }
 
-.yao-labels {
+.yao-row {
     display: flex;
-    justify-content: space-between;
-    width: 120px;
+    align-items: center;
+    gap: 12px;
+}
+
+.yao-row-label,
+.yao-row-num {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+    transition: color var(--transition-medium);
+}
+
+.yao-row-label {
+    width: 30px;
+    text-align: right;
+    letter-spacing: 1px;
+}
+
+.yao-row-num {
+    width: 14px;
+}
+
+.yao-row.is-next .yao-row-label,
+.yao-row.is-next .yao-row-num {
+    color: var(--gold);
+}
+
+.yao-row.is-next .yao-line {
+    background: transparent;
+    outline: 1px dashed rgba(212, 175, 55, 0.8);
+    outline-offset: 2px;
+    animation: yaoNext 1.2s ease-in-out infinite;
+}
+
+@keyframes yaoNext {
+    0%, 100% { outline-color: rgba(212, 175, 55, 0.35); }
+    50% { outline-color: rgba(212, 175, 55, 0.95); }
+}
+
+.yao-direction {
+    max-width: 320px;
+    margin-top: -6px;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+    color: rgba(245, 240, 225, 0.55);
+}
+
+/* 首次引导：指向铜钱 */
+.coin-coach {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-top: -8px;
+    padding: 6px 14px;
+    font-size: 14px;
+    color: var(--ink-dark);
+    background: var(--gold);
+    border-radius: 999px;
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.45);
+    animation: coachBob 1.4s ease-in-out infinite;
+}
+
+.coin-coach[hidden] {
+    display: none;
+}
+
+.coin-coach-arrow {
+    font-weight: 700;
+}
+
+@keyframes coachBob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+.coins-container.is-awaiting .coin {
+    animation: coinBreath 1.8s ease-in-out infinite;
+}
+
+.coins-container.is-awaiting .coin:nth-child(2) { animation-delay: 0.15s; }
+.coins-container.is-awaiting .coin:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes coinBreath {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(212, 175, 55, 0)); }
+    50% { filter: drop-shadow(0 0 14px rgba(212, 175, 55, 0.75)); }
+}
+
+/* 快速起卦：动画时长与 CoinModule.flipDuration() 一致 */
+.coins-container.is-fast .coin.flipping {
+    animation-duration: 0.55s;
+}
+
+.coins-container.is-fast .coin.flipping .coin-inner {
+    animation-duration: 0.55s;
+}
+
+.quick-cast-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: rgba(245, 240, 225, 0.7);
+    cursor: pointer;
+    user-select: none;
+}
+
+.quick-cast-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.quick-cast-switch {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 999px;
+    transition: background var(--transition-medium);
+}
+
+.quick-cast-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: var(--paper-cream);
+    border-radius: 50%;
+    transition: transform var(--transition-medium);
+}
+
+.quick-cast-toggle input:checked + .quick-cast-switch {
+    background: var(--gold);
+}
+
+.quick-cast-toggle input:checked + .quick-cast-switch::after {
+    transform: translateX(16px);
+}
+
+.quick-cast-toggle input:focus-visible + .quick-cast-switch {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
 }
 
 /* ========================================
@@ -1263,6 +1404,17 @@ body {
 .ai-error {
     color: #c41e3a;
     margin-bottom: 16px;
+}
+
+.quota-notice {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #8a5a00;
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 8px;
 }
 
 .followup-thread {
@@ -1681,6 +1833,119 @@ body {
 
 .markdown-content h2:first-child {
     margin-top: 8px;
+}
+
+.markdown-content h2,
+.followup-section {
+    scroll-margin-top: 72px;
+}
+
+/* 解读目录：窄屏吸顶标签条 */
+.reading-toc {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 850;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 252, 242, 0.96);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    animation: tocIn 0.2s ease;
+}
+
+.reading-toc[hidden] {
+    display: none;
+}
+
+@keyframes tocIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.reading-toc-title {
+    flex-shrink: 0;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--gold);
+}
+
+.reading-toc-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.reading-toc-list::-webkit-scrollbar {
+    display: none;
+}
+
+.reading-toc-item {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #5a4a3a;
+    background: transparent;
+    border: 1px solid rgba(196, 30, 58, 0.25);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.reading-toc-item.is-active {
+    color: #fff;
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+}
+
+/* 宽屏：内容左侧固定侧栏 */
+@media (min-width: 1024px) {
+    .reading-toc {
+        top: 140px;
+        left: calc(50% - 300px - 190px);
+        right: auto;
+        width: 160px;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 14px 12px;
+        border: 1px solid rgba(212, 175, 55, 0.4);
+        border-radius: 12px;
+    }
+
+    .reading-toc-list {
+        flex-direction: column;
+        gap: 4px;
+        overflow: visible;
+    }
+
+    .reading-toc-item {
+        text-align: left;
+        border: none;
+        border-left: 2px solid transparent;
+        border-radius: 0;
+        padding: 6px 10px;
+    }
+
+    .reading-toc-item:hover {
+        color: var(--primary-red);
+    }
+
+    .reading-toc-item.is-active {
+        color: var(--primary-red);
+        background: rgba(196, 30, 58, 0.06);
+        border-left-color: var(--primary-red);
+    }
+
+    .markdown-content h2,
+    .followup-section {
+        scroll-margin-top: 24px;
+    }
 }
 .markdown-content h3 { font-size: 20px; border-bottom: none; }
 .markdown-content h4 { font-size: 18px; border-bottom: none; }

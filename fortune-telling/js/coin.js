@@ -109,8 +109,53 @@ class CoinModule {
         this.throwBtnElement = options.throwBtn;
         this.currentThrowElement = options.currentThrow;
         this.onComplete = options.onComplete;
+        this.onThrowStart = options.onThrowStart || null;
         this.defaultHintText = options.defaultHintText || '点击下方按钮掷出铜钱';
         this.sound = window.SoundModule ? new window.SoundModule() : null;
+        this.fast = false;
+        this.autoThrowing = false;
+        this.markNextYao();
+    }
+
+    /**
+     * 快速模式：缩短动画（需与 CSS .coins-container.is-fast 时长一致）
+     */
+    setFast(fast) {
+        this.fast = !!fast;
+        const container = this.coinElements[0] && this.coinElements[0].parentElement;
+        if (container) container.classList.toggle('is-fast', this.fast);
+    }
+
+    flipDuration() {
+        return this.fast ? 550 : 1400;
+    }
+
+    /**
+     * 连续掷完剩余各爻
+     */
+    async throwAll() {
+        if (this.autoThrowing || this.isFlipping) return;
+        this.autoThrowing = true;
+        try {
+            while (this.throwCount < 6) {
+                await this.throwCoins();
+                if (this.throwCount < 6) await new Promise(r => setTimeout(r, this.fast ? 180 : 400));
+            }
+        } finally {
+            this.autoThrowing = false;
+        }
+    }
+
+    /**
+     * 高亮下一个待掷的爻位
+     */
+    markNextYao() {
+        this.yaoLineElements.forEach((line, i) => {
+            const row = line && line.parentElement;
+            if (row && row.classList.contains('yao-row')) {
+                row.classList.toggle('is-next', i === this.throwCount && this.throwCount < 6);
+            }
+        });
     }
 
     /**
@@ -136,7 +181,7 @@ class CoinModule {
                     this.sound.playCoin(pitchRate, vol);
                 }
 
-                // 1400ms 后落地（与 CSS 动画对齐）
+                // 动画结束后落地（与 CSS 动画时长对齐）
                 setTimeout(() => {
                     coinElement.classList.remove('flipping');
                     coinElement.classList.remove('show-front', 'show-back');
@@ -144,7 +189,7 @@ class CoinModule {
                     coinElement.classList.add('landed');
                     setTimeout(() => coinElement.classList.remove('landed'), 350);
                     resolve();
-                }, 1400);
+                }, this.flipDuration());
 
             }, startDelay);
         });
@@ -160,6 +205,7 @@ class CoinModule {
         if (this.throwBtnElement) {
             this.throwBtnElement.disabled = true;
         }
+        if (this.onThrowStart) this.onThrowStart();
         
         // 随机生成三枚铜钱的结果
         const results = [];
@@ -168,7 +214,7 @@ class CoinModule {
         }
         
         // 三枚硬币依次错开 120ms 启动，音调略有差异增加真实感
-        const startDelays = [0, 120, 240];
+        const startDelays = this.fast ? [0, 60, 120] : [0, 120, 240];
         const pitchRates  = [1.0, 0.93, 1.07];
         await Promise.all(this.coinElements.map((coin, i) =>
             this.flipCoin(coin, results[i], startDelays[i], pitchRates[i])
@@ -188,6 +234,7 @@ class CoinModule {
         this.updateThrowResult(results, yaoInfo);
         this.updateYaoLine(yaoInfo);
         this.updateThrowCount();
+        this.markNextYao();
         
         this.isFlipping = false;
     }
@@ -358,6 +405,7 @@ class CoinModule {
         this.yaoLineElements.forEach(line => {
             line.className = 'yao-line';
         });
+        this.markNextYao();
         
         // 重置UI
         if (this.currentThrowElement) {

@@ -14,6 +14,21 @@ class ApiModule {
         this.proxyBase = '/api';
         this.useStream = true;
         this.streamAvailable = false; // 流式端点是否可用
+        this.quotaLimits = null;      // 服务端限额 { readingsPerDay, followupsPerCast }
+    }
+
+    deviceId() {
+        return window.appStorage ? window.appStorage.getDeviceId() : null;
+    }
+
+    async quotaResult(response) {
+        const data = await response.json().catch(() => ({}));
+        return {
+            success: false,
+            quotaExceeded: true,
+            kind: data.kind,
+            error: data.error || '今日免费次数已用完'
+        };
     }
 
     /**
@@ -25,6 +40,7 @@ class ApiModule {
             if (response.ok) {
                 const data = await response.json();
                 this.useProxy = data.hasApiKey;
+                this.quotaLimits = data.quota && data.quota.enabled ? data.quota : null;
                 // 检测流式端点
                 this.streamAvailable = await this.checkStreamAvailable();
                 return data.hasApiKey;
@@ -100,11 +116,16 @@ class ApiModule {
                     userQuestion,
                     yaoResults,
                     history: extra.history,
-                    followUp: extra.followUp
+                    followUp: extra.followUp,
+                    deviceId: this.deviceId()
                 })
             });
 
             clearTimeout(timeoutId);
+
+            if (response.status === 429) {
+                return await this.quotaResult(response);
+            }
 
             if (!response.ok) {
                 throw new Error(`请求失败: ${response.status}`);
@@ -178,15 +199,17 @@ class ApiModule {
      * 普通方式获取解卦
      */
     async getInterpretation(hexagramData, userQuestion, yaoResults, extra = {}) {
+        let proxyResult = null;
         if (this.useProxy) {
-            const result = await this.getInterpretationViaProxy(hexagramData, userQuestion, yaoResults, extra);
-            if (result.success) return result;
+            proxyResult = await this.getInterpretationViaProxy(hexagramData, userQuestion, yaoResults, extra);
+            if (proxyResult.success) return proxyResult;
         }
 
         if (this.config.apiKey) {
             return await this.getInterpretationDirect(hexagramData, userQuestion, yaoResults, extra);
         }
 
+        if (proxyResult && proxyResult.quotaExceeded) return proxyResult;
         return { success: false, error: '未配置 API Key' };
     }
 
@@ -204,11 +227,15 @@ class ApiModule {
                     userQuestion,
                     yaoResults,
                     history: extra.history,
-                    followUp: extra.followUp
+                    followUp: extra.followUp,
+                    deviceId: this.deviceId()
                 })
             });
 
             clearTimeout(timeoutId);
+            if (response.status === 429) {
+                return await this.quotaResult(response);
+            }
             const data = await response.json();
             
             if (data.useLocal) {
@@ -255,7 +282,7 @@ class ApiModule {
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.7,
-                    max_tokens: 8000
+                    max_tokens: 16000
                 })
             });
 
@@ -337,7 +364,7 @@ ${yaoDetails}
 
     generateLocalFollowUp(hexagramData, userQuestion, followUp) {
         const name = (hexagramData.main && hexagramData.main.name) || '此卦';
-        return `## 针对补充\n\n关于「${followUp}」：这件事仍落在 **「${name}」** 里，需要把新条件收进原问「${userQuestion}」来看，而不是另起一卦，更不宜把补充条件写成终局。\n\n## 行动调整\n\n- 先确认这个条件有没有改变你真正要问的那一层\n- 再按本卦处境、动爻转折来微调下一步，留一点观察的余地`;
+        return `## 直接回答\n\n关于「${followUp}」：这件事仍落在 **「${name}」** 里，需要把新条件收进原问「${userQuestion}」来看，而不是另起一卦，更不宜把补充条件写成终局。\n\n## 行动调整\n\n- 先确认这个条件有没有改变你真正要问的那一层\n- 再按本卦处境、动爻转折来微调下一步，留一点观察的余地`;
     }
 }
 
