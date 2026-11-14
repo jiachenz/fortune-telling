@@ -3,7 +3,11 @@
  * 输入 map: { "divinations:2026-08-15": 3, "ev:share_click:total": 2, ... }
  */
 
-const EVENTS = ['result_view', 'share_open', 'share_click', 'card_generated', 'landing'];
+const EVENTS = [
+    'result_view', 'share_open', 'share_click', 'card_generated', 'landing',
+    // 免费次数触顶人数（每设备每天每类只记一次，服务端写入）
+    'quota_hit_reading', 'quota_hit_followup'
+];
 
 function rate(num, den) {
     if (!den) return null;
@@ -93,8 +97,15 @@ function aggregateFromMap(map) {
         divinations: divByDay[date] || 0,
         result_view: (eventByDay.result_view || {})[date] || 0,
         share_click: (eventByDay.share_click || {})[date] || 0,
-        landing: (eventByDay.landing || {})[date] || 0
+        landing: (eventByDay.landing || {})[date] || 0,
+        quota_hit_reading: (eventByDay.quota_hit_reading || {})[date] || 0,
+        quota_hit_followup: (eventByDay.quota_hit_followup || {})[date] || 0
     }));
+
+    const quotaHits = {
+        readingToday: (eventByDay.quota_hit_reading || {})[today] || 0,
+        followupToday: (eventByDay.quota_hit_followup || {})[today] || 0
+    };
 
     return {
         generatedAt: new Date().toISOString(),
@@ -104,6 +115,7 @@ function aggregateFromMap(map) {
             total: divinationsTotal
         },
         events: eventTotals,
+        quotaHits,
         cards,
         refs,
         kpis: {

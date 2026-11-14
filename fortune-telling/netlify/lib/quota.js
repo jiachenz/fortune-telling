@@ -66,7 +66,7 @@ function keysFor(ident) {
 }
 
 function emptyUsage() {
-    return { readings: 0, followups: 0, casts: {} };
+    return { readings: 0, followups: 0, casts: {}, hits: {} };
 }
 
 async function loadUsage(store, key) {
@@ -147,12 +147,43 @@ async function safeConsume(store, ident) {
     }
 }
 
+/**
+ * 记录一次被拦截：同一设备同一天、同一类型只记第一次，看板上得到的是「触顶人数」
+ * bumpAnalytics(keys)：给埋点计数 +1 的适配器
+ */
+async function recordDenied(store, ident, kind, bumpAnalytics) {
+    const key = keysFor(ident).device;
+    if (!key) return;
+    const usage = await loadUsage(store, key);
+    if (usage.hits[kind]) return;
+    usage.hits[kind] = true;
+    await store.set(key, usage);
+    const name = `quota_hit_${kind}`;
+    await bumpAnalytics([`ev:${name}:total`, `ev:${name}:${ident.day}`]);
+}
+
+async function safeRecordDenied(store, ident, kind, bumpAnalytics) {
+    try {
+        await recordDenied(store, ident, kind, bumpAnalytics);
+    } catch (e) {
+        console.error('触顶埋点失败:', e.message);
+    }
+}
+
 function blobsStore(getStore) {
     const store = getStore('quota');
     return {
         get: (key) => store.get(key, { type: 'json' }),
         set: (key, value) => store.setJSON(key, value)
     };
+}
+
+function blobsAnalyticsBump(getStore) {
+    const store = getStore('analytics');
+    return (keys) => Promise.all(keys.map(async (key) => {
+        const cur = (await store.get(key, { type: 'json' })) || { count: 0 };
+        await store.setJSON(key, { count: (cur.count || 0) + 1 });
+    }));
 }
 
 module.exports = {
@@ -162,5 +193,7 @@ module.exports = {
     consume,
     safeCheck,
     safeConsume,
-    blobsStore
+    safeRecordDenied,
+    blobsStore,
+    blobsAnalyticsBump
 };

@@ -175,6 +175,12 @@ async function guardQuota(req, res) {
     });
     const verdict = await quota.safeCheck(localQuotaStore, ident);
     if (!verdict.allowed) {
+        await quota.safeRecordDenied(localQuotaStore, ident, verdict.kind, async (keys) => {
+            const data = readLocalData();
+            data.analytics = data.analytics || {};
+            keys.forEach((k) => { data.analytics[k] = (data.analytics[k] || 0) + 1; });
+            writeLocalData(data);
+        });
         res.status(429).json({
             success: false,
             error: verdict.message,

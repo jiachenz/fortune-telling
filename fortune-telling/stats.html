@@ -159,7 +159,9 @@
                 ['分享落地', data.events.landing || 0],
                 ['分享率', data.kpis.shareRateLabel],
                 ['转化率', data.kpis.conversionRateLabel],
-                ['K 因子', data.kpis.kFactorLabel]
+                ['K 因子', data.kpis.kFactorLabel],
+                ['今日解卦次数用完', ((data.quotaHits || {}).readingToday || 0) + ' 人'],
+                ['今日追问次数用完', ((data.quotaHits || {}).followupToday || 0) + ' 人']
             ];
             document.getElementById('kpis').innerHTML = items.map(([label, value]) =>
                 `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`
@@ -176,7 +178,9 @@
                         { label: '求卦', data: series.map((s) => s.divinations), borderColor: '#c41e3a', tension: .3 },
                         { label: '结果页', data: series.map((s) => s.result_view), borderColor: '#d4af37', tension: .3 },
                         { label: '分享点击', data: series.map((s) => s.share_click), borderColor: '#2c2c2c', tension: .3 },
-                        { label: '落地', data: series.map((s) => s.landing), borderColor: '#00a86b', tension: .3 }
+                        { label: '落地', data: series.map((s) => s.landing), borderColor: '#00a86b', tension: .3 },
+                        { label: '解卦次数用完（人）', data: series.map((s) => s.quota_hit_reading || 0), borderColor: '#e67e22', borderDash: [6, 4], tension: .3 },
+                        { label: '追问次数用完（人）', data: series.map((s) => s.quota_hit_followup || 0), borderColor: '#8e44ad', borderDash: [6, 4], tension: .3 }
                     ]
                 },
                 options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }

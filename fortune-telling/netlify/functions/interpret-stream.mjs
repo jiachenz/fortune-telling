@@ -80,6 +80,7 @@ export default async (request, context) => {
     });
     const verdict = await quota.safeCheck(quotaStore, ident);
     if (!verdict.allowed) {
+        await quota.safeRecordDenied(quotaStore, ident, verdict.kind, quota.blobsAnalyticsBump(getStore));
         return new Response(JSON.stringify({
             error: verdict.message,
             quotaExceeded: true,

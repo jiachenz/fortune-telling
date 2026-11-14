@@ -85,6 +85,7 @@ exports.handler = async (event, context) => {
     if (quotaStore && ident) {
         const verdict = await quota.safeCheck(quotaStore, ident);
         if (!verdict.allowed) {
+            await quota.safeRecordDenied(quotaStore, ident, verdict.kind, quota.blobsAnalyticsBump(getStore));
             return {
                 statusCode: 429,
                 headers,
