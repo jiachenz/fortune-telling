@@ -32,7 +32,7 @@ function createMailer({ allowConsole }) {
                 Authorization: `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                from: process.env.MAIL_FROM || '周易六爻 <onboarding@resend.dev>',
+                from: process.env.MAIL_FROM || '周易六爻 <noreply@fortune-telling-liuyao.com>',
                 to: [to],
                 subject,
                 text,

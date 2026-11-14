@@ -41,7 +41,7 @@
 # QUOTA_MEMBER_READINGS_PER_DAY / QUOTA_MEMBER_FOLLOWUPS_PER_CAST  会员（默认 20 / 10）
 # QUOTA_DISABLED = "1"            关闭限额（调试用）
 # RESEND_API_KEY = "re_..."       验证码发信
-# MAIL_FROM = "周易六爻 <noreply@你的域名>"  发件人，域名需在 Resend 验证
+# MAIL_FROM = "周易六爻 <noreply@fortune-telling-liuyao.com>"  发件人，域名需在 Resend 验证
 # AUTH_SECRET = "随机长字符串"     验证码与邮箱索引的 HMAC 密钥，设定后不要更改
 # ADMIN_TOKEN = "管理后台密钥"     访问 /admin.html；未设置时使用 STATS_TOKEN
 # PRICE_INPUT_PER_M = "0.25"      模型输入单价（美元 / 百万 token），看板成本估算用

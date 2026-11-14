@@ -33,7 +33,7 @@ class ShareModule {
         if (location.protocol === 'http:' || location.protocol === 'https:') {
             return location.origin + location.pathname.replace(/index\.html$/, '');
         }
-        return 'https://fortune-telling-liuyao.netlify.app/';
+        return 'https://fortune-telling-liuyao.com/';
     }
 
     /**
